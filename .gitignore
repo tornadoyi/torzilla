@@ -1,0 +1,10 @@
+*.pyc
+.idea
+*.egg-info/
+.eggs/
+eggs/
+dist/
+build/
+*.DS_Store
+.vscode
+.ipynb_checkpoints
