@@ -9,12 +9,12 @@ class PathStore(object):
         self._d = {}
 
     def get(self, path, default=NotExist):
-        U.assert_type('path', path, str)
+        U.assert_type(path, str)
         s = path.split('/')
         return self._find(path, s, 0, len(s), 0)
 
     def set(self, path, value):
-        U.assert_type('path', path, str)
+        U.assert_type(path, str)
         s = path.split('/')
         root = self._find(path, s, 0, len(s)-1, 1)
         if not isinstance(root, _Container):
@@ -26,7 +26,7 @@ class PathStore(object):
         root[s[-1]] = value
         
     def remove(self, path):
-        U.assert_type('path', path, str)
+        U.assert_type(path, str)
         s = path.split('/')
         root = self._find(path, s, 0, len(s)-1, 1)
         if not isinstance(root, _Container):

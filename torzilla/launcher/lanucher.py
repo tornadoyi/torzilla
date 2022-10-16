@@ -16,10 +16,10 @@ def lanuch(**kwargs):
 
 def _load_main_proc(path):
     mainproc = path
-    U.assert_type('mainproc', mainproc, str)
+    U.assert_type(mainproc, str)
     if mainproc is None:
         mainproc = MainProcess
     elif isinstance(mainproc, str):
         mainproc = U.import_type(mainproc)
-    U.assert_subclass('mainproc', mainproc, MainProcess)
+    U.assert_subclass(mainproc, MainProcess)
     return mainproc

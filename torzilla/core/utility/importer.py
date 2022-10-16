@@ -13,5 +13,5 @@ def import_type(path, type=None):
 
     tp = getattr(mod, tp_name)
     if type is not None:
-        assert_type(tp_name, tp, type)
+        assert_type(tp, type, name=tp_name)
     return tp
