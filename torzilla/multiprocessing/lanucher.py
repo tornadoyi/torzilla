@@ -8,15 +8,13 @@ def lanuch(**kwargs):
         proc = None
         proc = mainproc(**kwargs)
         proc.start()
-    except Exception as e:
-        raise e
     finally:
         if proc: proc.exit()
-
+    return proc
 
 def _load_main_proc(path):
     mainproc = path
-    U.assert_type(mainproc, str)
+    U.assert_type(mainproc, str, type, null=True)
     if mainproc is None:
         mainproc = MainProcess
     elif isinstance(mainproc, str):

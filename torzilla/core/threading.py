@@ -4,11 +4,14 @@ __GL__ = RLock()
 
 def GL(): return __GL__
 
-def synchronized():
+def synchronized(lock=None):
+    if lock is None:
+        global __GL__
+        lock = __GL__
+
     def wrap(f):
         def locked_f(*args, **kw):
-            global __GL__
-            with __GL__:
+            with lock:
                 return f(*args, **kw)
         return locked_f
     return wrap

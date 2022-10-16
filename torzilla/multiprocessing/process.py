@@ -55,37 +55,45 @@ class MainProcess(Process):
     
     def _pre_spawn(self): return None
                 
-    def _spawn(self, num_process, kwargs, join=True, daemon=False, start_method='spawn'):
+    def _spawn(self, num_process, kwargs):
+        # check
         subproc = kwargs.get('subproc', Subprocess)
         if isinstance(subproc, str): subproc = U.import_type(subproc)
         U.assert_subclass(subproc, Subprocess)
-        return mp.spawn(
-            subproc._on_process_entry, 
-            args=(subproc, kwargs), 
-            nprocs=num_process, 
-            join=join,
-            daemon=daemon,
-            start_method=start_method,
-        )
+
+        # create manager
+        manager = mp.Manager()
+
+        # start
+        processes = []
+        for i in range(num_process):
+            p = mp.Process(target=subproc._on_process_entry, args = (i, subproc, manager, kwargs))
+            p.start()
+            processes.append(p)
+
+        for p in processes:
+            p.join()
 
     
 class Subprocess(Process):
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, manager, **kwargs) -> None:
         super().__init__(**kwargs)
+        self._manager = manager
         self._proc_index = kwargs.get('proc_index', None)
         U.assert_type(self._proc_index, int, name='proc_index')
     
     @property
     def proc_index(self): return self._proc_index
 
+    @property
+    def manager(self): return self._manager
+
     @staticmethod
-    def _on_process_entry(index, proc, kwargs):
+    def _on_process_entry(index, proc, manager, kwargs):
         try:
             p = None
-            p = proc(proc_index=index, **kwargs)
+            p = proc(proc_index=index, manager=manager, **kwargs)
             p.start()
-        except Exception as e:
-            raise e
         finally:
             if p is not None: p.exit()
 
