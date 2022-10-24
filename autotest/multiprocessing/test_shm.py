@@ -26,7 +26,7 @@ class Subprocess(mp.Subprocess):
 
     def _on_start(self):
         self._queue = self.manager.get_queue()
-        if self.proc_index == 0:
+        if self.index == 0:
             self.consume()
         else:
             self.produce()
