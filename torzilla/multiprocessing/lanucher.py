@@ -37,12 +37,9 @@ def lanuch(
     ))
 
     # start
-    try:
-        proc = None
-        proc = mainproc_type(**mainproc_args)
-        proc.start()
-    finally:
-        if proc: proc.exit()
+    proc = mainproc_type(**mainproc_args)
+    with proc:
+        pass
     return proc
 
 def _import_module(mainproc, dft_type):

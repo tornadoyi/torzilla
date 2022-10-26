@@ -39,10 +39,10 @@ class SubprocessB(mp.Subprocess):
     
 class TestProcess(unittest.TestCase):
     
-    def test_common(self):
+    def test_mp_common(self):
         mp.lanuch(num_process=5)
 
-    def test_shared_process(self):
+    def test_mp_shared_process(self):
         gt = 100
         proc = mp.lanuch(
             num_process=5,
@@ -54,7 +54,7 @@ class TestProcess(unittest.TestCase):
         for (idx, num) in proc.result:
             self.assertEqual(num, gt)
 
-    def test_independ_process(self):
+    def test_mp_independ_process(self):
         subproc_args = []
         for _ in range(10):
             number = random.randint(0, 100)

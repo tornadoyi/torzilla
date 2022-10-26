@@ -5,28 +5,38 @@ import torch.multiprocessing as mp
 from torzilla.core import utility as U
 from torzilla import rpc
 
-__PROCESS__ = None
+__PROCESSES__ = {}
 
 class Process(object):
     def __init__(self, **kwargs) -> None:
-        global __PROCESS__
-        __PROCESS__ = self
         self._kwargs = kwargs
-    
-    @property
-    def pid(self): return os.getpid()
 
     @property
     def kwargs(self): return self._kwargs
 
     @staticmethod
-    def instance(): return __PROCESS__
+    def instance(): 
+        return __PROCESSES__.get(os.getpid(), None)
 
-    def start(self):
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, exc, val, tb):
+        self.exit()
+
+    def start(self): 
+        global __PROCESSES__
+        if os.getpid() in __PROCESSES__:
+            raise Exception(f'Process must be singleton, pid: {os.getpid()}')
+        __PROCESSES__[os.getpid()] = self
         self._on_start()
 
-    def exit(self): 
+    def exit(self):
+        global __PROCESSES__
         self._on_exit()
+        if os.getpid() not in __PROCESSES__: return
+        del __PROCESSES__[os.getpid()]
 
     def _on_start(self): pass
 
@@ -65,14 +75,12 @@ class MainProcess(Process):
     def manager(self): return self._manager
 
     def _on_start(self):
-        self._create_manager()
-        self._spawn()
-
+        with self._create_manager():
+            self._spawn()
 
     def _create_manager(self):
         self._manager = self._manager_type()
-        self._manager.start()
-
+        return self._manager
 
     def _spawn(self):
         processes = []
@@ -92,7 +100,7 @@ class Subprocess(Process):
         super().__init__(**kwargs)
         self._manager = manager
         self._index = index
-        U.assert_type(self._index, int, name='proc_index')
+        U.assert_type(self._index, int, name='index')
     
     @property
     def index(self): return self._index
@@ -102,12 +110,8 @@ class Subprocess(Process):
 
     @staticmethod
     def _on_process_entry(index, proc, manager, kwargs):
-        try:
-            p = None
-            p = proc(index=index, manager=manager, **kwargs)
-            p.start()
-        finally:
-            if p is not None: p.exit()
+        with proc(index=index, manager=manager, **kwargs):
+            pass
 
     def _on_start(self):
         if self._try_init_rpc():
@@ -122,11 +126,11 @@ class Subprocess(Process):
         num_rpc = rpc_kwargs.get('num_rpc', float('inf'))
         U.assert_type(rank_start, int)
         U.assert_type(num_rpc, int, float)
-        if self.proc_index >= num_rpc: return False
+        if self.index >= num_rpc: return False
 
         # start
         rpc_kwargs = copy.copy(rpc_kwargs)
-        rpc_kwargs['rank'] = self.proc_index + rank_start
+        rpc_kwargs['rank'] = self.index + rank_start
         self._init_rpc(**rpc_kwargs)
 
         return True

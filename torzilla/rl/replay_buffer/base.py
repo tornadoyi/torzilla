@@ -1,9 +1,13 @@
 
 
 class BaseReplayBuffer(object):
-    def __init__(self, max_size) -> None:
-        self._max_size = max_size
+    def __init__(self, capacity) -> None:
+        self._capacity = capacity
         
-
     @property
-    def max_size(self): return self._max_size
+    def capacity(self): return self._capacity
+
+    def start(self):
+        self._on_start()
+
+    def _on_start(self): pass

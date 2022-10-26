@@ -64,7 +64,7 @@ class Subprocess(mp.Subprocess):
 
 class TestSHM(unittest.TestCase):
     
-    def test_shm(self):
+    def test_mp_shm(self):
         proc = mp.lanuch(
             num_process=2,
             mainproc=MainProcess,
