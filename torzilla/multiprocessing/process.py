@@ -2,13 +2,14 @@ import os
 import copy
 import inspect
 import torch.multiprocessing as mp
-from torzilla.core import utility as U
+from torzilla.core import utility as U, object
 from torzilla import rpc
 
 __PROCESSES__ = {}
 
-class Process(object):
+class Process(object.Context):
     def __init__(self, **kwargs) -> None:
+        super().__init__()
         self._kwargs = kwargs
 
     @property
@@ -18,29 +19,21 @@ class Process(object):
     def instance(): 
         return __PROCESSES__.get(os.getpid(), None)
 
-    def __enter__(self):
-        self.start()
-        return self
-
-    def __exit__(self, exc, val, tb):
-        self.exit()
-
     def start(self): 
         global __PROCESSES__
         if os.getpid() in __PROCESSES__:
             raise Exception(f'Process must be singleton, pid: {os.getpid()}')
         __PROCESSES__[os.getpid()] = self
-        self._on_start()
+        
+        super().start()
 
     def exit(self):
+        super().exit()
+
         global __PROCESSES__
-        self._on_exit()
         if os.getpid() not in __PROCESSES__: return
         del __PROCESSES__[os.getpid()]
 
-    def _on_start(self): pass
-
-    def _on_exit(self): pass
 
     @staticmethod
     def _init_rpc(**kwargs):

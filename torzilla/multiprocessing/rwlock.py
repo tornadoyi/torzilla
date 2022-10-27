@@ -8,7 +8,9 @@ class _Core(object):
         self._state = mod.Value('l', 0)  # >0: read, <0: write 0: noops
         self._num_w_wait = mod.Value('l', 0)
         self._write_first = mod.Value('b', write_first)
-    
+
+    def state(self): return self._state.value
+
     def acquire_read(self, timeout=None):
         with self._cond:
             return self.wait_for(self._acquire_read, timeout)
@@ -91,9 +93,15 @@ class _WLock(_Lock):
 
 class RWLock():
     def __init__(self, write_first=True, manager=None):
-        core = _Core(write_first, manager)
-        self._reader_lock = _RLock(core)
-        self._writer_lock = _WLock(core)
+        self._core = _Core(write_first, manager)
+        self._reader_lock = _RLock(self._core)
+        self._writer_lock = _WLock(self._core)
+
+    def locked(self): return self._core.state() != 0
+
+    def rlocked(self): return self._core.state() < 0
+
+    def wlocked(self): return self._core.state() != 0
 
     def __enter__(self):
         self._writer_lock.acquire()

@@ -1,17 +1,21 @@
 from multiprocessing.managers import SyncManager as _SyncManager
 from .rwlock import RWLock
-from torzilla.core import utility as U
+from torzilla.core import utility as U, object
 
 __MANAGER__ = None
 
-class Manager(_SyncManager):
+class Manager(_SyncManager, object.Context):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        object.Context.__init__(self)
+        self._shutdown = False
 
     def __enter__(self):
         super().__enter__()
 
     def __exit__(self, exc, val, tb):
         super().__exit__(exc, val, tb)
-        self.exit()
+        object.Context.__exit__(self, exc, val, tb)
 
     def start(self, *args, **kwargs):
         global __MANAGER__
@@ -20,17 +24,19 @@ class Manager(_SyncManager):
         __MANAGER__ = self
 
         ret = super().start(*args, **kwargs)
-        self._on_start(*args, **kwargs)
+        object.Context.start(self, *args, **kwargs)
         return ret
 
     def exit(self):
-        self._on_exit()
+        if not self._shutdown: 
+            self.shutdown()
+        object.Context.exit(self)
         global __MANAGER__
         __MANAGER__ = None
 
-    def _on_start(self, *args, **kwargs): pass
-
-    def _on_exit(self): pass
+    def shutdown(self) -> None:
+        self._shutdown = True
+        return super().shutdown()
 
     def RWLock(self, *args, **kwargs):
         kwargs['manager'] = self
