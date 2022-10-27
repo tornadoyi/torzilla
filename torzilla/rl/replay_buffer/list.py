@@ -1,37 +1,95 @@
 import time
 from queue import Empty
+from operator import itemgetter
+import numpy as np
 from torzilla import multiprocessing as mp
-from .base import BaseReplayBuffer
+from torzilla.core import threading
+from .base import BaseReplayBuffer, BaseBufferStore
 
 
-class ListReplayBufferCore(object):
-    pass
-
-class ListReplayBuffer(BaseReplayBuffer):
-    def __init__(self, capacity, send_qsize=0, flush_timeout=0):
+class ListBufferStore(BaseBufferStore):
+    def __init__(self, capacity, send_qsize=0):
         super().__init__(capacity)
         self._send_qsize = send_qsize
-        self._flush_timeout = flush_timeout
+
+    @property
+    def send_queue(self): return self._Q
+
+    @property
+    def lock(self): return self._L
+
+    @property
+    def memory(self): return self._M
+
+    @property
+    def head(self): return self._head
+
+    @property
+    def tail(self): return self._tail
 
     def __len__(self):
-        head, tail, L = self._M['head'], self._M['tail'], self._M['L']
-        with L.reader_lock():
-            h, t = head.value, tail.value
+        with self._L.reader_lock():
+            return self._size()
+
+    def _size(self):
+        h, t = self._head.value, self._tail.value
         if h < 0: return 0
         return self.capacity if h == t else t - h
 
     def _on_start(self):
-        self._M = self._get_shared_data()
-        
-    def push(self, data):
-        self._M['Q'].put(data)
-
-    def sample(self, batch_size):
-        pass
+        super()._on_start()
+        manager = mp.Process.instance().manager
+        self._Q = mp.Queue(maxsize=self._send_qsize)
+        self._L = manager.RWLock()
+        self._M = manager.list([None] * self.capacity)
+        self._head = manager.Value('l', -1)
+        self._tail = manager.Value('l', 0)
     
+
+class ListReplayBuffer(BaseReplayBuffer):
+    def __init__(self, store, enable_flush=False, flush_timeout=0):
+        super().__init__(store, self._sample)
+        self._enable_flush = enable_flush
+        self._flush_timeout = flush_timeout
+        self._flush_thread = threading.Thread(target=self._flush) if enable_flush else None
+
+    @property
+    def enable_flush(self): return self._enable_flush
+
+    @property
+    def flush_timeout(self): return self._flush_timeout
+
+    def _on_start(self):
+        super()._on_start()
+        if self._flush_thread: 
+            self._flush_thread.start()
+
+    def _on_exit(self):
+        super()._on_exit()
+        if self._flush_thread:
+            self._flush_thread.join()
+
+    def push(self, data):
+        self.store.send_queue.put(data)
+
+    @staticmethod
+    def _sample(self, batch_size):
+        M, L = self.store.memory, self.store.lock
+        with L.reader_lock():
+            # check
+            size = self.store._size()
+            if batch_size > size:
+                raise Exception(f'Not enough datas, current: {size}  expected: {batch_size}')
+            
+            # random
+            head = self.store.head.value
+            offsets = np.random.randint(low=0, high=size, size=batch_size)
+            indexes = [(head + off) % self.capacity for off in offsets]
+            return itemgetter(*indexes)(M)
+            
     def _flush(self):
-        Q, M, L = self._M['Q'], self._M['M'], self._M['L']
-        head, tail = self._M['head'], self._M['tail']
+        Q, M, L = self.store.send_queue, self.store.memory, self.store.lock
+        head, tail = self.store.head, self.store.tail
         cache = []
 
         def _get_one(timeout):
@@ -48,7 +106,7 @@ class ListReplayBuffer(BaseReplayBuffer):
             datas = datas[-self.capacity:]
             offset = raw_data_len % self.capacity if raw_data_len > self.capacity else 0
 
-            with L.write_lock():
+            with L.writer_lock():
                 _h, _t = head.value, tail.value
                 t = _t + offset
                 st = 0
@@ -68,7 +126,7 @@ class ListReplayBuffer(BaseReplayBuffer):
 
                 tail.value = nt        
 
-        while True:
+        while self.store.running:
             cache.clear()
             end_time = timeout = None
             while timeout is None or timeout > 0:
@@ -82,17 +140,3 @@ class ListReplayBuffer(BaseReplayBuffer):
                 if not L.wlocked() or timeout <= 0:
                     _save(cache)
                     timeout = -1
-                              
-            
-    def _get_shared_data(self):
-        manager = mp.Process.instance().manager
-        with manager.shared_lock:
-            if 'replay_buffer' not in manager.shared_data:
-                manager.shared_data['replay_buffer'] = manager.dict(
-                    Q = mp.Queue(maxsize=self._send_qsize),
-                    L = manager.RWLock(),
-                    M = manager.list([None] * self.capacity),
-                    head = manager.Value('l', -1),
-                    tail = manager.Value('l', 0),
-                )
-        return manager.shared_data['replay_buffer']
