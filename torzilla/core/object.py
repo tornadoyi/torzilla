@@ -15,8 +15,8 @@ class Context(object):
     def start(self, *args, **kwargs): 
         if self._started:
             raise Exception(f'{type(self)} start repeated')
-        self._on_start(*args, **kwargs)
         self._started = True
+        self._on_start(*args, **kwargs)
 
     def exit(self, *args, **kwargs):
         if not self._started:

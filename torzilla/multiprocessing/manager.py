@@ -28,9 +28,9 @@ class Manager(_SyncManager, object.Context):
         return ret
 
     def exit(self):
+        object.Context.exit(self)
         if not self._shutdown: 
             self.shutdown()
-        object.Context.exit(self)
         global __MANAGER__
         __MANAGER__ = None
 

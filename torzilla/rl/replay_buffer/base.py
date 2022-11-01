@@ -17,7 +17,7 @@ class BaseBufferStore(object.Context):
         raise NotImplementedError(f'{type(self)}.__len__ is not implemented')
 
     def _on_start(self):
-        manager = mp.Process.instance().manager
+        manager = mp.Process.current().manager
         self._running = manager.Value('b', True)
 
     def _on_exit(self):

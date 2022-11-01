@@ -1,45 +1,82 @@
 import os
-import copy
 import inspect
 import torch.multiprocessing as mp
-from torzilla.core import utility as U, object
+from torzilla.core import utility as U, object, threading
 from torzilla import rpc
 
+__LOCK__ = mp.RLock()
 __PROCESSES__ = {}
+__MAIN_PID__ = None
+
+def _add_process(process):
+    global __PROCESSES__, __MAIN_PID__, __LOCK__
+    with __LOCK__:
+        if os.getpid() in __PROCESSES__:
+            raise Exception(f'Process must be singleton, pid: {os.getpid()}')
+        __PROCESSES__[os.getpid()] = process
+        if isinstance(process, MainProcess):
+            __MAIN_PID__ = os.getpid()
+
+def _remove_process():
+    global __PROCESSES__, __MAIN_PID__, __LOCK__
+    with __LOCK__:
+        process = __PROCESSES__.get(os.getpid(), None)
+        if process is None: return
+        del __PROCESSES__[os.getpid()]
+        if os.getpid() == __MAIN_PID__:
+            __MAIN_PID__ = None
+
+def _current():
+    with __LOCK__:
+        return __PROCESSES__.get(os.getpid(), None)
+
+def _main():
+    with __LOCK__:
+        return __PROCESSES__.get(__MAIN_PID__, None)
+
+
 
 class Process(object.Context):
     def __init__(self, **kwargs) -> None:
         super().__init__()
         self._kwargs = kwargs
+        self._rref = None
 
     @property
     def kwargs(self): return self._kwargs
 
-    @staticmethod
-    def instance(): 
-        return __PROCESSES__.get(os.getpid(), None)
+    @property
+    def rref(self): 
+        return self._rref
 
-    def start(self): 
-        global __PROCESSES__
-        if os.getpid() in __PROCESSES__:
-            raise Exception(f'Process must be singleton, pid: {os.getpid()}')
-        __PROCESSES__[os.getpid()] = self
+    @staticmethod
+    def current(): return _current()
         
+    @staticmethod
+    def main(): return _main()
+
+    @staticmethod
+    def current_rref(): return _current().rref
+        
+    def start(self): 
+        _add_process(self)
+        self._init_rpc()
         super().start()
 
     def exit(self):
         super().exit()
+        if rpc.is_init():
+            rpc.shutdown()
+        _remove_process()
 
-        global __PROCESSES__
-        if os.getpid() not in __PROCESSES__: return
-        del __PROCESSES__[os.getpid()]
-
-
-    @staticmethod
-    def _init_rpc(**kwargs):
+    def _init_rpc(self):
+        kwargs = self.kwargs.get('rpc', None)
+        if kwargs is None: return False
         keys = inspect.getfullargspec(rpc.init_rpc).args
         rpc_args = U.pick_args(kwargs, keys, drop_none=True)
-        return rpc.init_rpc(**rpc_args)
+        rpc.init_rpc(**rpc_args)
+        self._rref = rpc.RRef(self)
+        rpc.barrier()
 
 
 class MainProcess(Process):
@@ -51,15 +88,15 @@ class MainProcess(Process):
         )
         # check
         from .manager import Manager
-        manager = manager or Manager
+        manager_type = manager or Manager
         U.assert_subclass(manager, Manager)
         for args in subproc_args:
             subproc = args.get('subproc', Subprocess)
             U.assert_subclass(subproc, Subprocess)
 
-        self._manager_type = manager
         self._subproc_args = subproc_args
-        self._manager = None
+        self._manager = manager_type()
+        self._processes = []
 
     @property
     def num_process(self): return len(self._subproc_args)
@@ -67,25 +104,24 @@ class MainProcess(Process):
     @property
     def manager(self): return self._manager
 
-    def _on_start(self):
-        with self._create_manager():
-            self._spawn()
-
-    def _create_manager(self):
-        self._manager = self._manager_type()
-        return self._manager
+    def start(self): 
+        self._manager.start()
+        self._spawn()
+        super().start()
+        
+    def exit(self):
+        super().exit()
+        for p in self._processes:
+            p.join()
+        self._manager.exit()
 
     def _spawn(self):
-        processes = []
         for i in range(len(self._subproc_args)):
             args = self._subproc_args[i]
             subproc = args['subproc']
             p = mp.Process(target=subproc._on_process_entry, args = (i, subproc, self.manager, args))
             p.start()
-            processes.append(p)
-
-        for p in processes:
-            p.join()
+            self._processes.append(p)
 
 
 class Subprocess(Process):
@@ -105,25 +141,3 @@ class Subprocess(Process):
     def _on_process_entry(index, proc, manager, kwargs):
         with proc(index=index, manager=manager, **kwargs):
             pass
-
-    def _on_start(self):
-        if self._try_init_rpc():
-            rpc.shutdown()
-
-    def _try_init_rpc(self):
-        rpc_kwargs = self.kwargs.get('rpc', None)
-        if rpc_kwargs is None: return False
-
-        # check
-        rank_start = rpc_kwargs.get('rank', None)
-        num_rpc = rpc_kwargs.get('num_rpc', float('inf'))
-        U.assert_type(rank_start, int)
-        U.assert_type(num_rpc, int, float)
-        if self.index >= num_rpc: return False
-
-        # start
-        rpc_kwargs = copy.copy(rpc_kwargs)
-        rpc_kwargs['rank'] = self.index + rank_start
-        self._init_rpc(**rpc_kwargs)
-
-        return True

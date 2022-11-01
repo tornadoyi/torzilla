@@ -38,7 +38,7 @@ class ListBufferStore(BaseBufferStore):
 
     def _on_start(self):
         super()._on_start()
-        manager = mp.Process.instance().manager
+        manager = mp.Process.current().manager
         self._Q = mp.Queue(maxsize=self._send_qsize)
         self._L = manager.RWLock()
         self._M = manager.list([None] * self.capacity)
