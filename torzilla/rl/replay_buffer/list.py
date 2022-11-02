@@ -1,6 +1,7 @@
 import time
 from queue import Empty
 from operator import itemgetter
+from tkinter import E
 import numpy as np
 from torzilla import multiprocessing as mp
 from torzilla.core import threading
@@ -8,24 +9,15 @@ from .base import BaseReplayBuffer, BaseBufferStore
 
 
 class ListBufferStore(BaseBufferStore):
-    def __init__(self, capacity, send_qsize=0):
+    def __init__(self, capacity, max_cache_size=0):
         super().__init__(capacity)
-        self._send_qsize = send_qsize
+        self._max_cache_size = max_cache_size
 
     @property
-    def send_queue(self): return self._Q
+    def max_cache_size(self): return self._max_cache_size
 
     @property
-    def lock(self): return self._L
-
-    @property
-    def memory(self): return self._M
-
-    @property
-    def head(self): return self._head
-
-    @property
-    def tail(self): return self._tail
+    def cache_size(self): return self._Q.qsize()
 
     def __len__(self):
         with self._L.reader_lock():
@@ -33,13 +25,12 @@ class ListBufferStore(BaseBufferStore):
 
     def _size(self):
         h, t = self._head.value, self._tail.value
-        if h < 0: return 0
         return self.capacity if h == t else t - h
 
     def _on_start(self):
         super()._on_start()
         manager = mp.Process.current().manager
-        self._Q = mp.Queue(maxsize=self._send_qsize)
+        self._Q = mp.Queue(maxsize=self._max_cache_size)
         self._L = manager.RWLock()
         self._M = manager.list([None] * self.capacity)
         self._head = manager.Value('l', -1)
@@ -47,18 +38,21 @@ class ListBufferStore(BaseBufferStore):
     
 
 class ListReplayBuffer(BaseReplayBuffer):
-    def __init__(self, store, enable_flush=False, flush_timeout=0):
+    def __init__(self, store, enable_flush=True, cache_wait_timeout=0.5):
         super().__init__(store, self._sample)
         self._enable_flush = enable_flush
-        self._flush_timeout = flush_timeout
+        self._cache_wait_timeout = cache_wait_timeout
         self._flush_thread = threading.Thread(target=self._flush) if enable_flush else None
 
     @property
     def enable_flush(self): return self._enable_flush
 
     @property
-    def flush_timeout(self): return self._flush_timeout
+    def cache_wait_timeout(self): return self._cache_wait_timeout
 
+    @property
+    def cache_size(self): return self._store.cache_size
+            
     def _on_start(self):
         super()._on_start()
         if self._flush_thread: 
@@ -69,12 +63,12 @@ class ListReplayBuffer(BaseReplayBuffer):
         if self._flush_thread:
             self._flush_thread.join()
 
-    def push(self, data):
-        self.store.send_queue.put(data)
+    def put(self, data):
+        self.store._Q.put(data)
 
     @staticmethod
     def _sample(self, batch_size):
-        M, L = self.store.memory, self.store.lock
+        M, L = self.store._M, self.store._L
         with L.reader_lock():
             # check
             size = self.store._size()
@@ -82,22 +76,15 @@ class ListReplayBuffer(BaseReplayBuffer):
                 raise Exception(f'Not enough datas, current: {size}  expected: {batch_size}')
             
             # random
-            head = self.store.head.value
+            head = self.store._head.value
             offsets = np.random.randint(low=0, high=size, size=batch_size)
             indexes = [(head + off) % self.capacity for off in offsets]
             return itemgetter(*indexes)(M)
             
     def _flush(self):
-        Q, M, L = self.store.send_queue, self.store.memory, self.store.lock
-        head, tail = self.store.head, self.store.tail
-        cache = []
+        Q, M, L = self.store._Q, self.store._M, self.store._L
+        head, tail = self.store._head, self.store._tail
 
-        def _get_one(timeout):
-            try:
-                return Q.get(timeout=timeout)
-            except Empty:
-                return None
-        
         def _save(datas):
             raw_data_len = len(datas)
             if raw_data_len == 0: return
@@ -110,33 +97,35 @@ class ListReplayBuffer(BaseReplayBuffer):
                 _h, _t = head.value, tail.value
                 t = _t + offset
                 st = 0
-                if t + len(datas) > self.capacity:
+                if t + len(datas) >= self.capacity:
                     M[t:self.capacity] = datas[:self.capacity-t]
-                    t = 0
                     st = self.capacity - t
+                    t = 0
                 
                 nt = t + len(datas) - st
                 assert(nt == (_t + len(datas)) % self.capacity)
                 M[t:nt] = datas[st:]
                 
-                if _h < 0 and _t + raw_data_len < self.capacity:
+                if _h != _t and _t + raw_data_len < self.capacity:
                     head.value = 0
                 else:
                     head.value = nt
 
-                tail.value = nt        
+                tail.value = nt 
 
-        while self.store.running:
+        def _get_one(timeout):
+            try:
+                return Q.get(timeout=timeout)
+            except Empty:
+                return None
+        
+        cache = []
+        while self.running:
             cache.clear()
-            end_time = timeout = None
-            while timeout is None or timeout > 0:
-                data = _get_one(timeout)
-                if data is not None: 
-                    cache.append(data)
-                    end_time = end_time or time.time() + self._flush_timeout
-                        
-                timeout = end_time if end_time is None else end_time - time.time()
-
-                if not L.wlocked() or timeout <= 0:
-                    _save(cache)
-                    timeout = -1
+            for _ in range(Q.qsize()):
+                data = _get_one(self._cache_wait_timeout)
+                if data is None: break
+                cache.append(data)
+            
+            if len(cache) == 0: continue
+            _save(cache)

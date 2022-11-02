@@ -5,7 +5,7 @@ class _Core(object):
     def __init__(self, write_first, manager):
         mod = mp if manager is None else manager
         self._cond = mod.Condition()
-        self._state = mod.Value('l', 0)  # >0: read, <0: write 0: noops
+        self._state = mod.Value('l', 0)  # >0: read, <0: write 0: no ops
         self._num_w_wait = mod.Value('l', 0)
         self._write_first = mod.Value('b', write_first)
 
@@ -71,25 +71,23 @@ class _Lock(object):
         self.release()
     
     @staticmethod
-    def _timeout(blocking, timeout):
-        if timeout < 0 and timeout != -1:
-            raise ValueError("invalid timeout")
-        if blocking:
-            return timeout if timeout >= 0 else None
-        if timeout > 0:
-            raise ValueError("can't specify a timeout when non-blocking")
-        return 0
+    def _timeout(block, timeout):
+        if timeout and timeout < 0:
+            raise ValueError(f"Invalid timeout {timeout}")
+        if not block and timeout is not None:
+            raise ValueError("Can't specify a timeout when non-blocking")
+        return timeout
 
     def release(self):
         return self._core.release()
 
 class _RLock(_Lock):
-    def acquire(self, blocking=True, timeout=-1):
-        return self._core.acquire_read(self._timeout(blocking, timeout))
+    def acquire(self, block=True, timeout=None):
+        return self._core.acquire_read(self._timeout(block, timeout))
 
 class _WLock(_Lock):
-    def acquire(self, blocking=True, timeout=-1):
-        return self._core.acquire_write(self._timeout(blocking, timeout))
+    def acquire(self, block=True, timeout=None):
+        return self._core.acquire_write(self._timeout(block, timeout))
 
 class RWLock():
     def __init__(self, write_first=True, manager=None):

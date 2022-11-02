@@ -28,11 +28,11 @@ def _remove_process():
 
 def _current():
     with __LOCK__:
-        return __PROCESSES__.get(os.getpid(), None)
+        return __PROCESSES__[os.getpid()]
 
 def _main():
     with __LOCK__:
-        return __PROCESSES__.get(__MAIN_PID__, None)
+        return __PROCESSES__[__MAIN_PID__]
 
 
 
@@ -105,8 +105,10 @@ class MainProcess(Process):
     def manager(self): return self._manager
 
     def start(self): 
+        _add_process(self)
         self._manager.start()
         self._spawn()
+        _remove_process()
         super().start()
         
     def exit(self):

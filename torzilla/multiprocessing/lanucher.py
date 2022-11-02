@@ -6,7 +6,7 @@ from .manager import Manager
 
 
 def lanuch(
-    num_process=0,
+    num_process=None,
     mainproc=None,
     manager=None,
     subproc=None,
@@ -15,13 +15,18 @@ def lanuch(
     **shared_args,
 ):
     # check
-    U.assert_type(num_process, int)
+    U.assert_type(num_process, int, null=True)
     U.assert_type(subproc_args, list, tuple, null=True)
     mainproc_type = _import_module(mainproc, MainProcess)
     subproc_type = _import_module(subproc, Subprocess)
     manager_type = _import_module(manager, Manager)
-    if subproc_args is not None and len(subproc_args) != num_process:
+
+    if not subproc_args and not num_process:
+        raise Exception(f'Argument num_process needed')
+    elif subproc_args and num_process and len(subproc_args) != num_process:
         raise Exception(f'Number of subproc args must be equal to num_process, {len(subproc_args)} != {num_process}')
+    elif subproc_args:
+        num_process = len(subproc_args)
     
     # check rpc
     has_sub_rpc = False
