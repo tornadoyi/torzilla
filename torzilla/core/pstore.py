@@ -1,5 +1,4 @@
 from enum import Enum
-from .error import *
 from .types import *
 from . import utility as U
 from . import threading
@@ -9,6 +8,8 @@ class _Container(dict): pass
 class _Action(Enum):
     Error = 0
     Create = 1
+
+class NotExistError(Exception): pass
 
 class _BaseStore(object):
     def __init__(self) -> None:
@@ -32,21 +33,13 @@ class _BaseStore(object):
     def set(self, paths, value):
         root = self._find(paths, 0, len(paths)-1, 1)
         if not isinstance(root, _Container):
-            raise InvalidArgumentError(
-                'path', 
-                '/'.join(paths), 
-                desc=f'Type of {"/".join(paths[:-1])} is {type(root)}, expected container'
-            )
+            raise KeyError(f'path {"/".join(paths[:-1])} is {type(root)}, expected container')
         root[paths[-1]] = value
         
     def _remove(self, paths):
         root = self._find(paths, 0, len(paths)-1, 1)
         if not isinstance(root, _Container):
-            raise InvalidArgumentError(
-                'path', 
-                '/'.join(paths), 
-                desc=f'Type of {"/".join(paths[:-1])} is {type(root)}, expected container'
-            )
+            raise KeyError(f'path {"/".join(paths[:-1])} is {type(root)}, expected container')
         del root[paths[-1]]
 
     def _find(self, paths, len, action):   # 0: error  1: new
@@ -54,21 +47,14 @@ class _BaseStore(object):
         for i in range(0, len, 1):
             k = paths[i]
             if not isinstance(root, _Container):
-                raise InvalidArgumentError(
-                    'path', 
-                    '/'.join(paths), 
-                    desc=f'Type of {"/".join(paths[:i+1])} is {type(root)}, expected container'
-                )
+                raise KeyError(f'path {"/".join(paths[:i+1])} is {type(root)}, expected container')
 
             v = root.get(k, NotExist)
             if v is NotExist:
                 if action == _Action.Create:
                     v = root[k] =_Container()
                 else:
-                    raise NotExistError(
-                        '/'.join(paths), 
-                        desc=f'{"/".join(paths[:i+1])} is not exist'
-                    )
+                    raise NotExistError(f'path {"/".join(paths[:i+1])} is not exist')
             root = v
         return root
 

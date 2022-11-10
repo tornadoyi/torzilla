@@ -1,6 +1,4 @@
 from torch.distributed import rpc as _rpc
-
-from torzilla.core.error import *
 from torzilla.core import utility as U
 
 def init_rpc(

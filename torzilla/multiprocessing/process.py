@@ -1,7 +1,7 @@
 import os
 import inspect
 import torch.multiprocessing as mp
-from torzilla.core import utility as U, object, threading
+from torzilla.core import utility as U, object
 from torzilla import rpc
 
 __LOCK__ = mp.RLock()

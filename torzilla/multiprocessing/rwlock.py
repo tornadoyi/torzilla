@@ -112,3 +112,6 @@ class RWLock():
 
     def writer_lock(self):
         return self._writer_lock
+
+    def wait_for(self, predicate, timeout=None):
+        return self._core.wait_for(predicate, timeout)

@@ -1,5 +1,6 @@
 from multiprocessing.managers import SyncManager as _SyncManager
 from .rwlock import RWLock
+from .clist import CycleList, clist
 from torzilla.core import utility as U, object
 
 __MANAGER__ = None
@@ -41,6 +42,14 @@ class Manager(_SyncManager, object.Context):
     def RWLock(self, *args, **kwargs):
         kwargs['manager'] = self
         return RWLock(*args, **kwargs)
+
+    def CycleList(self, *args, **kwargs):
+        kwargs['manager'] = self
+        return CycleList(*args, **kwargs)
+
+    def clist(self, *args, **kwargs):
+        kwargs['manager'] = self
+        return clist(*args, **kwargs)
 
 
 class SharedManager(Manager):

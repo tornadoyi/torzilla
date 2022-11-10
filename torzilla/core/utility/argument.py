@@ -1,11 +1,10 @@
 import inspect
-from torzilla.core.error import *
 
 def pick_args(kwargs, keys, drop_none=False, miss_error=False, miss_value=None):
     d = {}
     for k in keys:
         if k not in kwargs and miss_error:
-            raise ArgumentMissError(k, desc='pick_args')
+            raise TypeError(f'missing 1 required positional argument: "{k}"')
         v = kwargs.get(k, miss_value)
         if drop_none and v is None: continue
         d[k] = v
@@ -44,7 +43,7 @@ def trace_arg_names(frame=None):
         for s in splits:
             idx = s.find('=')
             if idx < 0:
-                if len(kwargs) > 0: raise Exception(f'Parse {s} failed, receive a args after kwargs')
+                if len(kwargs) > 0: raise SyntaxError(f'parse {s} failed, receive a args after kwargs')
                 args.append(s)
             else:
                 k, v = s[:idx].strip(), s[idx+1:].strip()

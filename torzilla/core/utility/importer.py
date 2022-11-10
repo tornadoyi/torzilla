@@ -1,5 +1,4 @@
 import importlib
-from torzilla.core.error import *
 from .assertion import *
 
 def import_module(path): 

@@ -1,2 +1,2 @@
-from .base import BaseBufferStore, BaseReplayBuffer
-from .list import ListBufferStore, ListReplayBuffer
+from .base import BaseReplayBuffer
+from .list import ListReplayBuffer
