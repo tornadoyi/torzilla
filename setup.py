@@ -12,11 +12,7 @@ setup(
     install_requires=[
         # base
         'gym',
-        'tqdm',
-        'lxml',
-        'beautifulsoup4',
-        'rarfile',
-
+        
         # datas
     ],
     entry_points={

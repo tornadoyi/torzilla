@@ -2,8 +2,9 @@ from torch import nn as _nn
 import numpy as np
 from functools import partial
 
-_WEIGHT_INITIALIZER = partial(_nn.init.orthogonal, gain=np.sqrt(2))
-_BIAS_INITIALIZER = partial(_nn.init.constant, val=0)
+_WEIGHT_INITIALIZER = partial(_nn.init.orthogonal_, gain=np.sqrt(2))
+_BIAS_INITIALIZER = partial(_nn.init.constant_, val=0)
+_ACTIVATION = _nn.ReLU()
 
 def get_layer_weight_initializer():
     return _WEIGHT_INITIALIZER
@@ -13,11 +14,19 @@ def set_layer_weight_initializer(initializer):
     _WEIGHT_INITIALIZER = initializer
 
 def get_layer_bias_initializer():
-    return _WEIGHT_INITIALIZER
+    return _BIAS_INITIALIZER
 
 def set_layer_bias_initializer(initializer):
     global _BIAS_INITIALIZER
     _BIAS_INITIALIZER = initializer
+
+def get_mlp_activation():
+    return _ACTIVATION
+
+def set_mlp_activation(activation):
+    global _ACTIVATION
+    _ACTIVATION = activation
+
 
 class Layer(_nn.Module):
     def __init__(
@@ -26,8 +35,8 @@ class Layer(_nn.Module):
         out_features,
         bias=True,
         activation=None,
-        weight_initializers=get_layer_weight_initializer(),
-        bias_initializers=get_layer_bias_initializer(),
+        weight_initializer=get_layer_weight_initializer(),
+        bias_initializer=get_layer_bias_initializer(),
         layer_norm=None,
         batch_norm=None,
         device=None, 
@@ -38,9 +47,9 @@ class Layer(_nn.Module):
         
         # linear & initializer
         self.linear = _nn.Linear(in_features, out_features, bias, device, dtype)
-        weight_initializers(self.linear.weight.data)
+        weight_initializer(self.linear.weight.data)
         if bias:
-            bias_initializers(self.linear.bias.data)
+            bias_initializer(self.linear.bias.data)
         self.ops.append(self.linear)
 
         # layer norm
@@ -88,7 +97,7 @@ class MLP(_nn.Module):
         in_features,
         layer_features,
         bias=True,
-        activations=_nn.ReLU,
+        activations=get_mlp_activation(),
         weight_initializers=get_layer_weight_initializer(),
         bias_initializers=get_layer_bias_initializer(),
         layer_norms=None,
@@ -124,7 +133,7 @@ class MLP(_nn.Module):
                 bias=bias, 
                 activation=activations[i], 
                 weight_initializer=weight_initializers[i],
-                bias_initializers=bias_initializers[i],
+                bias_initializer=bias_initializers[i],
                 layer_norm=layer_norms[i],
                 batch_norm=batch_norms[i],
                 device=device,
