@@ -1,7 +1,7 @@
 from multiprocessing.managers import SyncManager as _SyncManager
 from .rwlock import RWLock
 from .clist import CycleList, clist
-from torzilla.core import utility as U, object
+from torzilla.core import *
 
 __MANAGER__ = None
 
@@ -73,7 +73,7 @@ class SharedManager(Manager):
 __DEFAULT_MANAGER__ = Manager
 def set_manager_type(manager_type):
     global __DEFAULT_MANAGER__
-    U.assert_subclass(manager_type, Manager)
+    assert_subclass(manager_type, Manager)
     __DEFAULT_MANAGER__ = manager_type
 
 def get_manager_type(): return __DEFAULT_MANAGER__

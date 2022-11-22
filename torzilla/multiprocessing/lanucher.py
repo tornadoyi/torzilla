@@ -1,6 +1,5 @@
 import copy
-import enum
-from torzilla.core import utility as U
+from torzilla.core import *
 from .process import MainProcess, Subprocess
 from .manager import Manager
 
@@ -15,8 +14,8 @@ def lanuch(
     **shared_args,
 ):
     # check
-    U.assert_type(num_process, int, null=True)
-    U.assert_type(subproc_args, list, tuple, null=True)
+    assert_type(num_process, int, null=True)
+    assert_type(subproc_args, list, tuple, null=True)
     mainproc_type = _import_module(mainproc, MainProcess)
     subproc_type = _import_module(subproc, Subprocess)
     manager_type = _import_module(manager, Manager)
@@ -78,9 +77,9 @@ def _parse_rpc_args(rpc_kwargs, num_process):
     rank_start = rpc_kwargs.get('rank', 0)
     world_size = rpc_kwargs.get('world_size', None)
 
-    U.assert_type(enable_mainproc_rpc, bool)
-    U.assert_type(rank_start, int)
-    U.assert_type(world_size, int, null=True)
+    assert_type(enable_mainproc_rpc, bool)
+    assert_type(rank_start, int)
+    assert_type(world_size, int, null=True)
     
     if world_size is None:
         world_size = num_process + 1 if enable_mainproc_rpc else num_process
@@ -106,10 +105,10 @@ def _parse_rpc_args(rpc_kwargs, num_process):
 
 
 def _import_module(mainproc, dft_type):
-    U.assert_type(mainproc, str, type, null=True)
+    assert_type(mainproc, str, type, null=True)
     if mainproc is None:
         mainproc = dft_type
     elif isinstance(mainproc, str):
         mainproc = U.import_type(mainproc)
-    U.assert_subclass(mainproc, dft_type)
+    assert_subclass(mainproc, dft_type)
     return mainproc

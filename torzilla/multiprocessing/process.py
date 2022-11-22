@@ -1,7 +1,7 @@
 import os
 import inspect
 import torch.multiprocessing as mp
-from torzilla.core import utility as U, object
+from torzilla.core import *
 from torzilla import rpc
 
 __LOCK__ = mp.RLock()
@@ -73,7 +73,7 @@ class Process(object.Context):
         kwargs = self.kwargs.get('rpc', None)
         if kwargs is None: return False
         keys = inspect.getfullargspec(rpc.init_rpc).args
-        rpc_args = U.pick_args(kwargs, keys, drop_none=True)
+        rpc_args = pick_args(kwargs, keys, drop_none=True)
         rpc.init_rpc(**rpc_args)
         self._rref = rpc.RRef(self)
         rpc.barrier()
@@ -89,10 +89,10 @@ class MainProcess(Process):
         # check
         from .manager import Manager
         manager_type = manager or Manager
-        U.assert_subclass(manager, Manager)
+        assert_subclass(manager, Manager)
         for args in subproc_args:
             subproc = args.get('subproc', Subprocess)
-            U.assert_subclass(subproc, Subprocess)
+            assert_subclass(subproc, Subprocess)
 
         self._subproc_args = subproc_args
         self._manager = manager_type()
@@ -131,7 +131,7 @@ class Subprocess(Process):
         super().__init__(**kwargs)
         self._manager = manager
         self._index = index
-        U.assert_type(self._index, int, name='index')
+        assert_type(self._index, int, name='index')
     
     @property
     def index(self): return self._index

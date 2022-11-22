@@ -1,7 +1,7 @@
 from enum import Enum
 from .types import *
-from . import utility as U
-from . import threading
+from .assertion import *
+from torzilla import threading
 
 class _Container(dict): pass
 
@@ -59,7 +59,7 @@ class _BaseStore(object):
         return root
 
     def _split_path(path):
-        U.assert_type(path, str)
+        assert_type(path, str)
         return path.split('/')
 
 class PathStore(_BaseStore):
