@@ -37,7 +37,7 @@ class ListReplayBuffer(BaseReplayBuffer):
             manager = mp.Process.current().manager
             self._Q = manager.clist(self._max_cache_size)
             self._M = manager.clist(self._capacity)
-            self._qlock = manager.RLock()
+            self._qlock = manager.Lock()
             self._mlock = manager.RWLock()
         else:
             self._Q = self.master._Q

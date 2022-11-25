@@ -4,7 +4,7 @@ import torch.multiprocessing as mp
 from torzilla.core import *
 from torzilla import rpc
 
-__LOCK__ = mp.RLock()
+__LOCK__ = mp.Lock()
 __PROCESSES__ = {}
 __MAIN_PID__ = None
 

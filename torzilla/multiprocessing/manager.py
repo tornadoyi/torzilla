@@ -1,6 +1,8 @@
 from multiprocessing.managers import SyncManager as _SyncManager
 from .rwlock import RWLock
 from .clist import CycleList, clist
+from .result import Result, MultiResult
+from .gear import Gear
 from torzilla.core import *
 
 __MANAGER__ = None
@@ -51,6 +53,18 @@ class Manager(_SyncManager, object.Context):
         kwargs['manager'] = self
         return clist(*args, **kwargs)
 
+    def Result(self, *args, **kwargs):
+        kwargs['manager'] = self
+        return Result(*args, **kwargs)
+
+    def MultiResult(self, *args, **kwargs):
+        kwargs['manager'] = self
+        return MultiResult(*args, **kwargs)
+
+    def Gear(self, *args, **kwargs):
+        kwargs['manager'] = self
+        return Gear(*args, **kwargs)
+
 
 class SharedManager(Manager):
     def __init__(self, *args, **kwargs):
@@ -67,7 +81,7 @@ class SharedManager(Manager):
     def start(self, *args, **kwargs):
         ret = super().start(*args, **kwargs)
         self._shared_data = self.dict()
-        self._shared_lock = self.RLock()
+        self._shared_lock = self.Lock()
         return ret
 
 __DEFAULT_MANAGER__ = Manager

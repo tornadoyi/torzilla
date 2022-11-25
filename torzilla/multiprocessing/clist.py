@@ -3,11 +3,10 @@ from torch import multiprocessing as mp
 
 
 class CycleList(object):
-    def __init__(self, capacity, manager=None):
-        mod = mp if manager is None else manager
-        self._M = mod.list([None] * capacity)
-        self._head = mod.Value('l', -1)
-        self._tail = mod.Value('l', 0)
+    def __init__(self, capacity, manager):
+        self._M = manager.list([None] * capacity)
+        self._head = manager.Value('l', -1)
+        self._tail = manager.Value('l', 0)
     
     def __len__(self):
         capacity, h, t = len(self._M), self._head.value, self._tail.value

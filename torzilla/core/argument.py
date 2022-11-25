@@ -1,4 +1,5 @@
 import inspect
+import argparse
 
 def pick_args(kwargs, keys, drop_none=False, miss_error=False, miss_value=None):
     d = {}
@@ -91,3 +92,49 @@ def trace_arg_names(frame=None):
             kwarg_names[k] = kwargs[k] 
     
     return kwarg_names
+
+
+def parse_hargs(args, **kwargs):
+    from .assertion import assert_type
+    assert_type(args, dict, tuple, list)
+    
+    def _path(root, name):
+        return '.'.join([n for n in (root, name) if n and len(n) > 0])
+
+    def dfs_parse(parser, path, args):
+        if isinstance(args, Argument):
+            name = _path(path, args.name).replace('_', '-')
+            parser.add_argument(f'--{name}', **args.kwargs)
+            
+        elif isinstance(args, (tuple, list)):
+            for arg in args:
+                dfs_parse(parser, path, arg)
+        elif isinstance(args, dict):
+            for k, v in args.items():
+                next_path = _path(path, k)
+                next_parser = parser.add_argument_group(title=k)
+                dfs_parse(next_parser, next_path, v)
+        else:
+            raise TypeError(f'invalid argument type {type(args)}')
+
+    # parse
+    parser = argparse.ArgumentParser(**kwargs)
+    dfs_parse(parser, None, args)
+    parsed_args = vars(parser.parse_args())
+
+    # set
+    out = {}
+    for key, value in parsed_args.items():
+        root, ks = out, key.split('.')
+        for k in ks[:-1]:
+            if k not in root: root[k] = {}
+            root = root[k]
+        root[ks[-1]] = value
+    return out
+
+
+
+class Argument(object):
+    def __init__(self, name=None, **kwargs):
+        self.name = name
+        self.kwargs = kwargs
