@@ -1,5 +1,6 @@
 import traceback
 from multiprocessing.pool import ThreadPool
+from torzilla import threading
 
 class Gear(object):
     def __init__(self, connections, manager):
@@ -85,8 +86,9 @@ class Gear(object):
                     _listen()
             pool.close()
         
-        pool.apply_async(_loop)
-        return Connection(self, pool)
+        thread = threading.Thread(target=_loop)
+        thread.start()
+        return Connection(self, thread, pool)
 
     def close(self):
         if not self._running.value:
@@ -97,8 +99,9 @@ class Gear(object):
 
 
 class Connection(object):
-    def __init__(self, gear, pool):
+    def __init__(self, gear, thread, pool):
         self._gear = gear
+        self._thread = thread
         self._pool = pool
     
     def join(self):
@@ -107,6 +110,7 @@ class Connection(object):
             self._gear._cond.wait_for(self._cond_close)
         self._pool.close()
         self._pool.join()
+        self._thread.join()
         self._gear = None
         self._pool = None
 
