@@ -3,7 +3,7 @@ import numpy as np
 def eval_conv_output_size(conv, input_size):
     '''
     :param conv:  convolution kernel
-    :param input_size:  int or tuple  with format size / (H, W) / (D, H, W)
+    :param input_size:  int or tuple  with format size / (H, W) / (C, H, W)
     :return:
     '''
     input_size = np.asarray(input_size)
@@ -38,7 +38,7 @@ def eval_conv_output_size(conv, input_size):
     elif shape[0] == 2: return _conv2d()
     elif shape[0] == 3: return _conv3d()
 
-    raise Exception('Invalid conv kernel {}'.format(conv.kernel_size))
+    raise ValueError('invalid conv kernel {}'.format(conv.kernel_size))
 
 
 def eval_pool_output_size(pool, input_size):
@@ -62,4 +62,4 @@ def eval_pool_output_size(pool, input_size):
 
     shape = np.shape(pool.kernel_size)
     if shape[0] == 2: return _pool2d()
-    else: raise Exception(f'unsupported kernel dims {len(shape)}')
+    else: raise ValueError(f'unsupported kernel dims {len(shape)}')

@@ -95,7 +95,7 @@ class MLP(_nn.Module):
     def __init__(
         self,
         in_features,
-        layer_features,
+        out_features,
         bias=True,
         activations=get_mlp_activation(),
         weight_initializers=get_layer_weight_initializer(),
@@ -109,24 +109,24 @@ class MLP(_nn.Module):
 
         # activation
         if not isinstance(activations, (tuple, list)):
-            activations = [activations] * len(layer_features)
+            activations = [activations] * len(out_features)
 
         # initializer
         if not isinstance(weight_initializers, (tuple, list)):
-            weight_initializers = [weight_initializers] * len(layer_features)
+            weight_initializers = [weight_initializers] * len(out_features)
         if not isinstance(bias_initializers, (tuple, list)):
-            bias_initializers = [bias_initializers] * len(layer_features)
+            bias_initializers = [bias_initializers] * len(out_features)
 
         # normalizer
         if not isinstance(layer_norms, (tuple, list)):
-            layer_norms = [layer_norms] * len(layer_features)
+            layer_norms = [layer_norms] * len(out_features)
         if not isinstance(batch_norms, (tuple, list)):
-            batch_norms = [batch_norms] * len(layer_features)
+            batch_norms = [batch_norms] * len(out_features)
 
         # layers
-        layers = [None] * len(layer_features)
+        layers = [None] * len(out_features)
         last_features = in_features
-        for i, out_feautures in enumerate(layer_features):
+        for i, out_feautures in enumerate(out_features):
             layers[i] = Layer(
                 last_features, 
                 out_feautures, 

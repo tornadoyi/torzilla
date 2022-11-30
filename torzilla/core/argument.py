@@ -115,7 +115,7 @@ def parse_hargs(args, **kwargs):
                 next_parser = parser.add_argument_group(title=k)
                 dfs_parse(next_parser, next_path, v)
         else:
-            raise TypeError(f'invalid argument type {type(args)}')
+            raise TypeError(f'invalid argument type {type(args)} of {path}')
 
     # parse
     parser = argparse.ArgumentParser(**kwargs)

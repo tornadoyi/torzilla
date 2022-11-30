@@ -21,9 +21,9 @@ def lanuch(
     manager_type = _import_module(manager, Manager)
 
     if not subproc_args and not num_process:
-        raise Exception(f'Argument num_process needed')
+        raise Exception(f'argument num_process needed')
     elif subproc_args and num_process and len(subproc_args) != num_process:
-        raise Exception(f'Number of subproc args must be equal to num_process, {len(subproc_args)} != {num_process}')
+        raise Exception(f'number of subproc args must be equal to num_process, {len(subproc_args)} != {num_process}')
     elif subproc_args:
         num_process = len(subproc_args)
     
@@ -35,7 +35,7 @@ def lanuch(
             has_sub_rpc = True
             break
     if has_sub_rpc and rpc is not None:
-        raise Exception('Can not configure subproc rpc and global rpc at same time')
+        raise Exception('can not configure subproc rpc and global rpc at same time')
 
     if has_sub_rpc:
         main_rpc_args = None
@@ -84,7 +84,7 @@ def _parse_rpc_args(rpc_kwargs, num_process):
     if world_size is None:
         world_size = num_process + 1 if enable_mainproc_rpc else num_process
     if world_size <= 0:
-        raise ValueError(f'Invalud rpc world_size {world_size}')
+        raise ValueError(f'invalud rpc world_size {world_size}')
 
     rank = 0
     main_args = None
@@ -109,6 +109,6 @@ def _import_module(mainproc, dft_type):
     if mainproc is None:
         mainproc = dft_type
     elif isinstance(mainproc, str):
-        mainproc = U.import_type(mainproc)
+        mainproc = import_type(mainproc)
     assert_subclass(mainproc, dft_type)
     return mainproc

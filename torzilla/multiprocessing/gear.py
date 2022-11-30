@@ -1,10 +1,10 @@
 import traceback
 from multiprocessing.pool import ThreadPool
 from torzilla import threading
+from .process import Process
 
 class Gear(object):
     def __init__(self, connections, manager):
-        self._manager = manager
         self._connections = connections
         self._running = manager.Value('b', True)
         self._cond = manager.Condition()
@@ -16,6 +16,10 @@ class Gear(object):
         self._call.kwargs = None
         self._call.result = None
         self._call.id = 0
+
+    @property
+    def running(self):
+        return self._running.value
 
     def apply_async(self, *args, **kwargs):
         def _cond_ready():
@@ -29,7 +33,7 @@ class Gear(object):
             self._num_wait.value = 0   
             self._call.args = args
             self._call.kwargs = kwargs
-            self._call.result = self._manager.MultiResult(self._connections)
+            self._call.result = Process.current().manager.MultiResult(self._connections)
             self._call.id = (self._call.id + 1) % 2
             self._cond.notify_all()
             self._cond.wait_for(_cond_ready)
@@ -56,7 +60,7 @@ class Gear(object):
                 r = func(*args, **kwargs)
                 result._set(index, (True, r))
             except Exception as e:
-                e = type(e)(traceback.format_exc())
+                e = type(e)(traceback.format_exc(chain=False))
                 result._set(index, (False, e))
 
         def _listen():
@@ -96,6 +100,10 @@ class Gear(object):
         with self._cond:
             self._running.value = False
             self._cond.notify_all()
+
+    def join(self):
+        with self._cond:
+            self._cond.wait_for(lambda : not self._running.value)
 
 
 class Connection(object):
