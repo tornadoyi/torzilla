@@ -1,8 +1,8 @@
-from torzilla import multiprocessing as mp
 from torzilla.rl.replay_buffer import ListReplayBuffer
+from rlzoo.zoo.role import Role
 
 
-class ReplayBuffer(mp.Subprocess):
+class ReplayBuffer(Role):
     def _on_start(self):
         master = self.manager.replay_buffer
         self._buffer = ListReplayBuffer(master=master)

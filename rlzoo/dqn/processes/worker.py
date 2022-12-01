@@ -1,19 +1,13 @@
 import time
-import random
 from torch import futures
 from torzilla import multiprocessing as mp
-from torzilla import threading, rpc
+from torzilla import threading
 from rlzoo.zoo import gym
+from rlzoo.zoo.role import Role
 
 
-class Worker(mp.Subprocess):
+class Worker(Role):
     def _on_start(self, *args, **kwargs):
-        self.replay_rrefs = futures.wait_all([
-            rpc.rpc_async(info, mp.Process.current_rref) 
-            for info in rpc.get_worker_infos() 
-            if info.name.startswith('replay_buffer')
-        ])
-
         t_upload = self._start_upload()
         self.manager.worker.gear.join()
         t_upload.join()
@@ -28,6 +22,9 @@ class Worker(mp.Subprocess):
     def pull(self):
         pass
 
+    def close(self):
+        self.manager.worker.gear.close()
+
     def _start_upload(self, timeout=0.5):
         Q = self.manager.worker.queue
         datas = []
@@ -38,8 +35,7 @@ class Worker(mp.Subprocess):
                 datas.append(Q.get())
 
             if len(datas) > 0:
-                idx = random.randint(0, len(self.replay_rrefs)-1)
-                rb = self.replay_rrefs[idx]
+                rb = self.remote('replay')
                 rb.rpc_sync().put(*datas)
                 datas = []
             else:

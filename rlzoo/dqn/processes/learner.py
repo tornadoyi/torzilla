@@ -1,7 +1,7 @@
-from torzilla import multiprocessing as mp
+from rlzoo.zoo.role import Role
 
 
-class Learner(mp.Subprocess):
+class Learner(Role):
     def _on_start(self, *args, **kwargs):
 
         self.manager.learner_gear.connect(
