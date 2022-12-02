@@ -31,6 +31,9 @@ class ListReplayBuffer(BaseReplayBuffer):
         with self._mlock.reader_lock(), self._qlock:
             return self._size
 
+    def size(self):
+        return len(self)
+
     def _on_start(self):
         super()._on_start()
         if self.is_master():

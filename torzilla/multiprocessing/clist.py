@@ -1,8 +1,7 @@
 from operator import itemgetter
-from torch import multiprocessing as mp
 
 
-class CycleList(object):
+class CycledList(object):
     def __init__(self, capacity, manager):
         self._M = manager.list([None] * capacity)
         self._head = manager.Value('l', -1)
@@ -18,6 +17,17 @@ class CycleList(object):
             return capacity - h + t
         else:
             return capacity
+
+    def __iter__(self):
+        size = len(self)
+        for i in range(size):
+            yield self[i]
+
+    def __iadd__(self, other):
+        return self.extend(other)
+
+    def __imul__(self, size):
+        return self.extend(self[:] * size)
 
     def __getitem__(self, key):
         M, h, = self._M, self._head.value
@@ -82,9 +92,6 @@ class CycleList(object):
 
     def extend(self, datas):
         # check
-        if isinstance(datas, CycleList):
-            datas = datas[:]
-        
         raw_data_size = len(datas)
         if raw_data_size == 0: return
 
@@ -104,7 +111,7 @@ class CycleList(object):
             M[t:capacity] = datas[:capacity-t]
             M[0:data_size-capacity+t] = datas[capacity-t:]
         else:
-            M[t:t + data_size] = datas[:]
+            M[t:t+data_size] = datas[:]
         
         tail.value = (t + data_size) % capacity        
         
@@ -151,4 +158,4 @@ class CycleList(object):
         self._head.value = -1
         self._tail.value = 0
 
-clist = CycleList
+clist = CycledList
