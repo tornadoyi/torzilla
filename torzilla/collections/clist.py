@@ -10,6 +10,9 @@ class CycledList(object):
 
     @property
     def _tail(self):
+        cap = self.capacity()
+        if cap == 0:
+            return 0
         return (self._head + self._size) % self.capacity()
 
     def __add__(self, other):

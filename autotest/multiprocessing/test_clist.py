@@ -41,9 +41,10 @@ class TestCycledList(unittest.TestCase):
             self.compare(self.clist.copy(), self.list.copy())
 
     def test_mp_clist___getitem__(self, n=NUM_TEST):
-        while len(self.clist) < 100:
-            self.test_mp_clist_extend()
         cap = self.clist.capacity()
+        while len(self.clist) < cap // 3:
+            self.test_mp_clist_extend()
+        
         # index
         for idx in self.randlist(high=self.clist.capacity() * 2, size=n):
             self.compare(
@@ -111,10 +112,10 @@ class TestCycledList(unittest.TestCase):
             self.compare(size * self.clist, self.truncate(size * self.list))
 
     def test_mp_clist___setitem__(self, n=NUM_TEST):
-        while len(self.clist) < 100:
-            self.test_mp_clist_extend()
         cap = self.clist.capacity()
-
+        while len(self.clist) < cap // 3:
+            self.test_mp_clist_extend()
+        
         def _set(list, idx, data):
             list[idx] = data
         def _sets(list, idxes, datas):
@@ -290,15 +291,8 @@ class TestCycledList(unittest.TestCase):
                 self.list.sort(),
             )
 
-    def test_mp_clist_cross(self, n=NUM_TEST):
-        # collect test functions
-        test_funcs = []
-        for name in dir(self):
-            if not name.startswith('test_') or name == 'test_mp_clist_cross':
-                continue
-            test_funcs.append(getattr(self, name))
-
-        # test
+    def test_mp_clist_cross_spec(self, n=NUM_TEST):
+        test_funcs = self.get_none_spec_test_functions()
         for _ in range(n):
             idxes = self.randlist(0, len(test_funcs), size=len(test_funcs) * 2)
             for idx in idxes:
@@ -306,6 +300,13 @@ class TestCycledList(unittest.TestCase):
                 f(n=1)
                 if len(self.clist) > self.clist.capacity() * 5:
                     self.reset_list()
+
+    def test_mp_clist_zero_capacity_spec(self, n=NUM_TEST):
+        test_funcs = self.get_none_spec_test_functions()
+        for _ in range(n):
+            self.reset_list(capacity=0)
+            for f in test_funcs:
+                f(n=1)
 
     def compare(self, a=None, b=None, msg=''):
         def _format_info():
@@ -376,13 +377,12 @@ class TestCycledList(unittest.TestCase):
         cap = self.clist.capacity()
         return list[:cap]
 
-    def reset_list(self):
-        self.clist = self.manager.clist(capacity=120)
+    def reset_list(self, capacity=100):
+        self.clist = self.manager.clist(capacity=capacity)
         self.list = []
 
         # random init datas
         other = self.randlist(reject=list(range(self.clist.capacity() // 3)))
-        # other = list(range(50))
         self.clist.extend(other)
         self.list.extend(other)
         self.screenshot()
@@ -391,6 +391,14 @@ class TestCycledList(unittest.TestCase):
         self.last_clist = self.clist.copy()
         self.last_list = self.list.copy()
 
+    def get_none_spec_test_functions(self):
+        # collect test functions
+        test_funcs = []
+        for name in dir(self):
+            if not name.startswith('test_') or name.endswith('_spec'):
+                continue
+            test_funcs.append(getattr(self, name))
+        return test_funcs
 
 if __name__ == '__main__':
     unittest.main()
