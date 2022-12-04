@@ -1,10 +1,12 @@
 from multiprocessing.managers import SyncManager as _SyncManager
 from .rwlock import RWLock
-from .clist import CycledList, clist
+# from .clist import CycledList, clist
+from torzilla.collections import CycledList, clist
 from .dlist import DictedList, dlist
 from .result import Result, MultiResult
 from .gear import Gear
 from torzilla.core import *
+from .collections import *
 
 __MANAGER__ = None
 
@@ -46,13 +48,13 @@ class Manager(_SyncManager, object.Context):
         kwargs['manager'] = self
         return RWLock(*args, **kwargs)
 
-    def CycledList(self, *args, **kwargs):
-        kwargs['manager'] = self
-        return CycledList(*args, **kwargs)
+    # def CycledList(self, *args, **kwargs):
+    #     kwargs['manager'] = self
+    #     return CycledList(*args, **kwargs)
 
-    def clist(self, *args, **kwargs):
-        kwargs['manager'] = self
-        return clist(*args, **kwargs)
+    # def clist(self, *args, **kwargs):
+    #     kwargs['manager'] = self
+    #     return clist(*args, **kwargs)
 
     def DictedList(self, *args, **kwargs):
         kwargs['manager'] = self
@@ -74,6 +76,9 @@ class Manager(_SyncManager, object.Context):
         kwargs['manager'] = self
         return Gear(*args, **kwargs)
 
+
+Manager.register('CycledList', CycledList, CycledListProxy)
+Manager.register('clist', clist, CycledListProxy)
 
 class SharedManager(Manager):
     def __init__(self, *args, **kwargs):

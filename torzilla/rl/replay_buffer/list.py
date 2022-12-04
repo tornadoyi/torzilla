@@ -73,23 +73,41 @@ class ListReplayBuffer(BaseReplayBuffer):
             self._Q.clear()
             self._M.clear()
 
-    def pop(self, size=1):
+    def pop(self):
         with self._qlock:
             if len(self._Q) > 0:
                 with self._mlock.writer_lock():
                     self._flush()
 
         with self._mlock.writer_lock():
-            self._M.pop(size)
+            self._M.pop()
 
-    def popleft(self, size=1):
+    def popleft(self):
         with self._qlock:
             if len(self._Q) > 0:
                 with self._mlock.writer_lock():
                     self._flush()
 
         with self._mlock.writer_lock():
-            self._M.popleft(size)
+            self._M.popleft()
+
+    def popn(self, n=1):
+        with self._qlock:
+            if len(self._Q) > 0:
+                with self._mlock.writer_lock():
+                    self._flush()
+
+        with self._mlock.writer_lock():
+            self._M.popn(n)
+
+    def popnleft(self, n=1):
+        with self._qlock:
+            if len(self._Q) > 0:
+                with self._mlock.writer_lock():
+                    self._flush()
+
+        with self._mlock.writer_lock():
+            self._M.popnleft(n)
     
     def _flush(self, datas=None):
         if datas:

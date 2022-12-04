@@ -36,8 +36,8 @@ class BaseTestProcess(mp.Subprocess):
         self.test_put()
         self.test_clear()
         self.test_sample()
-        self.test_pop()
-        self.test_popleft()
+        self.test_popn()
+        self.test_popnleft()
         
     def rb(self):
         idx = random.randint(0, len(self.replay_rrefs)-1)
@@ -72,29 +72,29 @@ class BaseTestProcess(mp.Subprocess):
 
         # sample zero
         ans = self.rb().rpc_sync().sample(0)
-        self.cases.append(('assertEqual', ans, None, 'sample zero'))
+        self.cases.append(('assertEqual', len(ans), 0, 'sample zero'))
 
         # sample empty
         self.rb().rpc_sync().clear()
         ans = self.rb().rpc_sync().sample(10)
         self.cases.append(('assertEqual', ans, None, 'sample empty'))
         
-    def test_pop(self):
+    def test_popn(self):
         self.rb().rpc_sync().clear()
         num_data, pop_size = self.capacity, self.capacity // 3
         self.rb().rpc_sync().put(*list(range(num_data)))
-        self.rb().rpc_sync().pop(pop_size)
+        self.rb().rpc_sync().popn(pop_size)
         self.cases.append(('assertEqual', self.rb().rpc_sync().size(), num_data - pop_size, 'pop'))
         ans = self.rb().rpc_sync().sample((num_data - pop_size) * 2)
         ex_ans = [x for x in ans if x >= num_data - pop_size]
         self.cases.append(('assertEqual', len(ex_ans), 0, f'pop with error {ex_ans}'))
 
-    def test_popleft(self):
+    def test_popnleft(self):
         self.rb().rpc_sync().clear()
         self.rb().rpc_sync().clear()
         num_data, pop_size = self.capacity, self.capacity // 3
         self.rb().rpc_sync().put(*list(range(num_data)))
-        self.rb().rpc_sync().popleft(pop_size)
+        self.rb().rpc_sync().popnleft(pop_size)
         self.cases.append(('assertEqual', self.rb().rpc_sync().size(), num_data - pop_size, 'pop'))
         ans = self.rb().rpc_sync().sample((num_data - pop_size) * 2)
         ex_ans = [x for x in ans if x < pop_size]
@@ -128,11 +128,11 @@ class ReplayBufferProcess(mp.Subprocess):
     def clear(self):
         self._buffer.clear()
 
-    def pop(self, *args, **kwargs):
-        self._buffer.pop(*args, **kwargs)
+    def popn(self, *args, **kwargs):
+        self._buffer.popn(*args, **kwargs)
 
-    def popleft(self, *args, **kwargs):
-        self._buffer.popleft(*args, **kwargs)
+    def popnleft(self, *args, **kwargs):
+        self._buffer.popnleft(*args, **kwargs)
 
 
 class TestListReplayBuffer(unittest.TestCase):
