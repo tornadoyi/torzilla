@@ -290,6 +290,23 @@ class TestCycledList(unittest.TestCase):
                 self.list.sort(),
             )
 
+    def test_mp_clist_cross(self, n=NUM_TEST):
+        # collect test functions
+        test_funcs = []
+        for name in dir(self):
+            if not name.startswith('test_') or name == 'test_mp_clist_cross':
+                continue
+            test_funcs.append(getattr(self, name))
+
+        # test
+        for _ in range(n):
+            idxes = self.randlist(0, len(test_funcs), size=len(test_funcs) * 2)
+            for idx in idxes:
+                f = test_funcs[idx]
+                f(n=1)
+                if len(self.clist) > self.clist.capacity() * 5:
+                    self.reset_list()
+
     def compare(self, a=None, b=None, msg=''):
         def _format_info():
             last_state = self.last_clist._state()
@@ -316,15 +333,16 @@ class TestCycledList(unittest.TestCase):
             ] if x is not None])
 
         # compare list
-        self.assertEqual(len(self.clist), len(self.list), f'list length mismatch {_format_info()}')
+        info = _format_info()
+        self.assertEqual(len(self.clist), len(self.list), f'list length mismatch {info}')
         for i in range(len(self.clist)):
-            self.assertEqual(self.clist[i], self.list[i], f'list value mismatch {_format_info()}')
+            self.assertEqual(self.clist[i], self.list[i], f'list value mismatch {info}')
 
         # compare input
         self.assertEqual(
             hasattr(a, '__iter__'), 
             hasattr(b, '__iter__'), 
-            f'input iter mismatch {_format_info()})'
+            f'input iter mismatch {info})'
         )
         if not hasattr(a, '__iter__'):
             a, b = [a], [b]
@@ -334,13 +352,15 @@ class TestCycledList(unittest.TestCase):
             # exception
             x_ex, y_ex = isinstance(x, Exception), isinstance(y, Exception)
             if x_ex + y_ex > 0:
-                self.assertTrue(x_ex - y_ex == 0, f'value mismatch {_format_info()}')
+                self.assertTrue(x_ex - y_ex == 0, f'value mismatch {info}')
             else:
-                self.assertEqual(x, y, f'value mismatch {_format_info()}')
+                self.assertEqual(x, y, f'value mismatch {info}')
 
         self.screenshot()
 
     def randlist(self, low=0, high=100, size=None, reject=[]):
+        if low >= high or high <= 0:
+            return []
         size = random.randint(0, self.clist.capacity()) if size is None else size
         ans = []
         while len(ans) != size:
