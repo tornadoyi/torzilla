@@ -24,7 +24,7 @@ class DictParameterBuffer(BaseParameterBuffer):
     def capacity(self): return self._capacity
 
     def __len__(self):
-        with self._lock.reader_lock():
+        with self._lock.rlock():
             return len(self._M)
 
     def size(self):
@@ -47,7 +47,7 @@ class DictParameterBuffer(BaseParameterBuffer):
             self._lock = self.master._lock
 
     def put(self, data, meta=None, key=DEFAULT_KEY):
-        with self._lock.writer_lock():
+        with self._lock.wlock():
             # update data
             self._M[key] = (data, meta)
 
@@ -58,11 +58,11 @@ class DictParameterBuffer(BaseParameterBuffer):
             self._refresh_node(node)
 
     def get(self, param=True, meta=False, key=DEFAULT_KEY):
-        with self._lock.reader_lock():
+        with self._lock.rlock():
             pass
 
     def clear(self):
-        with self._lock.writer_lock():
+        with self._lock.wlock():
             self._M.clear()
             self._attr.head = None
             self._attr.tail = None

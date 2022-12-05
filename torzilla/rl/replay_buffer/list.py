@@ -2,6 +2,7 @@ import numpy as np
 from torzilla import multiprocessing as mp
 from .base import BaseReplayBuffer
 
+
 class ListReplayBuffer(BaseReplayBuffer):
     def __init__(self, capacity=None, max_cache_size=0, **kwargs):
         super().__init__(**kwargs)
@@ -28,7 +29,7 @@ class ListReplayBuffer(BaseReplayBuffer):
         return min(len(self._M) + len(self._Q), self._capacity)
 
     def __len__(self):
-        with self._mlock.reader_lock(), self._qlock:
+        with self._mlock.rlock(), self._qlock:
             return self._size
 
     def size(self):
@@ -51,7 +52,7 @@ class ListReplayBuffer(BaseReplayBuffer):
     def put(self, *datas):
         with self._qlock:
             if len(self._Q) + len(datas) > self.max_cache_size:
-                with self._mlock.writer_lock():
+                with self._mlock.wlock():
                     self._flush(datas)
             else:
                 self._Q.extend(datas)
@@ -59,54 +60,54 @@ class ListReplayBuffer(BaseReplayBuffer):
     def sample(self, size): 
         with self._qlock:
             if len(self._Q) > 0:
-                with self._mlock.writer_lock():
+                with self._mlock.wlock():
                     self._flush()
 
-        with self._mlock.reader_lock():
+        with self._mlock.rlock():
             # uniform sample
             buffer_size = self._size
             indexes = np.random.randint(low=0, high=buffer_size, size=size).tolist()
             return self._M[indexes]
 
     def clear(self):
-        with self._qlock, self._mlock.writer_lock():
+        with self._qlock, self._mlock.wlock():
             self._Q.clear()
             self._M.clear()
 
     def pop(self):
         with self._qlock:
             if len(self._Q) > 0:
-                with self._mlock.writer_lock():
+                with self._mlock.wlock():
                     self._flush()
 
-        with self._mlock.writer_lock():
+        with self._mlock.wlock():
             self._M.pop()
 
     def popleft(self):
         with self._qlock:
             if len(self._Q) > 0:
-                with self._mlock.writer_lock():
+                with self._mlock.wlock():
                     self._flush()
 
-        with self._mlock.writer_lock():
+        with self._mlock.wlock():
             self._M.popleft()
 
     def popn(self, n=1):
         with self._qlock:
             if len(self._Q) > 0:
-                with self._mlock.writer_lock():
+                with self._mlock.wlock():
                     self._flush()
 
-        with self._mlock.writer_lock():
+        with self._mlock.wlock():
             self._M.popn(n)
 
     def popnleft(self, n=1):
         with self._qlock:
             if len(self._Q) > 0:
-                with self._mlock.writer_lock():
+                with self._mlock.wlock():
                     self._flush()
 
-        with self._mlock.writer_lock():
+        with self._mlock.wlock():
             self._M.popnleft(n)
     
     def _flush(self, datas=None):

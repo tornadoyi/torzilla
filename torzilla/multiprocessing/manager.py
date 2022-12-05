@@ -1,12 +1,12 @@
 from multiprocessing.managers import SyncManager as _SyncManager
-from .rwlock import RWLock
-# from .clist import CycledList, clist
-from torzilla.collections import CycledList, clist
+from torzilla.core import *
+from torzilla.collections import *
+from torzilla.threading import RWLock
 from .dlist import DictedList, dlist
 from .result import Result, MultiResult
 from .gear import Gear
-from torzilla.core import *
-from .collections import *
+from .proxy import *
+
 
 __MANAGER__ = None
 
@@ -44,18 +44,6 @@ class Manager(_SyncManager, object.Context):
         self._shutdown = True
         return super().shutdown()
 
-    def RWLock(self, *args, **kwargs):
-        kwargs['manager'] = self
-        return RWLock(*args, **kwargs)
-
-    # def CycledList(self, *args, **kwargs):
-    #     kwargs['manager'] = self
-    #     return CycledList(*args, **kwargs)
-
-    # def clist(self, *args, **kwargs):
-    #     kwargs['manager'] = self
-    #     return clist(*args, **kwargs)
-
     def DictedList(self, *args, **kwargs):
         kwargs['manager'] = self
         return DictedList(*args, **kwargs)
@@ -77,26 +65,16 @@ class Manager(_SyncManager, object.Context):
         return Gear(*args, **kwargs)
 
 
+
+
+# collecions
 Manager.register('CycledList', CycledList, CycledListProxy)
 Manager.register('clist', clist, CycledListProxy)
 
-class SharedManager(Manager):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._shared_data = None
-        self._shared_lock = None
 
-    @property
-    def shared_data(self): return self._shared_data
+# lock
+Manager.register('RWLock', RWLock, RWLockProxy)
 
-    @property
-    def shared_lock(self): return self._shared_lock
-
-    def start(self, *args, **kwargs):
-        ret = super().start(*args, **kwargs)
-        self._shared_data = self.dict()
-        self._shared_lock = self.Lock()
-        return ret
 
 __DEFAULT_MANAGER__ = Manager
 def set_manager_type(manager_type):

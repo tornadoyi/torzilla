@@ -1,6 +1,6 @@
-from threading import *
+import threading as _th
 
-__GL__ = RLock()
+__GL__ = _th.RLock()
 
 def GL(): return __GL__
 
