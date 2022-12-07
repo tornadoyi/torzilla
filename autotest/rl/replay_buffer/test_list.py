@@ -7,52 +7,40 @@ from torzilla.rl.replay_buffer import ListReplayBuffer
 from torzilla import rpc
 
 class Manager(mp.Manager):
-    def __init__(self, *args, capacity=10, max_cache_size=0, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self._capacity = capacity
-        self._max_cache_size = max_cache_size
-        self.result = None
+    def _start(self):
+        capacity = mp.current_target().kwargs['capacity']
+        self.cases = self.list()
+        self.buffer = ListReplayBuffer(capacity=capacity)
 
-    def _on_start(self, *args, **kwargs):
-        self._cases = self.list()
-        self._buffer = ListReplayBuffer(capacity=self._capacity, max_cache_size=self._max_cache_size)
-        self._buffer.start()
+def CreateTarget(name, export_cls):
+    dic = {}
+    methods = [k for k in export_cls.__dict__.keys() if not k.startswith('_')]
+    for meth in methods:
+        exec('''def %s(self, /, *args, **kwds):
+        return self._core(%r, *args, **kwds)''' % (meth, meth), dic)
+    return type(name, (mp.Target,), dic)
 
-    def _on_exit(self, *args, **kwargs):
-        self._buffer.exit()
-        self.result = list(self._cases)
+class ReplayBuffer(CreateTarget('_ReplayBuffer', ListReplayBuffer)):
+    def _start(self):
+        self._core = ListReplayBuffer(master=self.manager().buffer)
+
+    def size(self):
+        return len(self._core)
 
 
-class BaseTestProcess(mp.Subprocess):
-    def _on_start(self, *args, **kwargs):
-        self.cases = self.manager._cases
-
+class TestTarget(mp.Target):
+    def _start(self):
         # get all replays
         rank = rpc.get_worker_info().id
         replay_ranks = [info.id for info in rpc.get_worker_infos() if info.id != rank]
         self.replay_rrefs = futures.wait_all([rpc.rpc_async(str(r), mp.Process.current_rref) for r in replay_ranks])
         self.capacity = self.rb().rpc_sync().capacity()
-
-        self.test_put()
-        self.test_clear()
-        self.test_sample()
-        self.test_popn()
-        self.test_popnleft()
         
     def rb(self):
         idx = random.randint(0, len(self.replay_rrefs)-1)
         return self.replay_rrefs[idx]
 
-    def test_put(self):
-        # put
-        num_data = self.capacity // 2
-        futures.wait_all([self.rb().rpc_async().put(i) for i in range(num_data)])
-        self.cases.append(('assertEqual', self.rb().rpc_sync().size(), num_data, 'put'))
-
-        # put overflow
-        self.rb().rpc_sync().put(*list(range(self.capacity)))
-        self.cases.append(('assertEqual', self.rb().rpc_sync().size(), self.capacity, 'put overflow'))
-    
+  
     def test_clear(self):
         self.rb().rpc_sync().put(*list(range(self.capacity)))
         self.rb().rpc_sync().clear()
@@ -100,62 +88,39 @@ class BaseTestProcess(mp.Subprocess):
         ex_ans = [x for x in ans if x < pop_size]
         self.cases.append(('assertEqual', len(ex_ans), 0, f'pop left with error {ex_ans}'))
 
-
-class ReplayBufferProcess(mp.Subprocess):
-    def _on_start(self):
-        master = self.manager._buffer
-        self._buffer = ListReplayBuffer(master=master)
-        self._buffer.start()
-
-    def _on_exit(self, *args, **kwargs):
-        self._buffer.exit()
-
-    def size(self):
-        return len(self._buffer)
-
-    def capacity(self):
-        return self._buffer.capacity
-
-    def put(self, *args, **kwargs):
-        return self._buffer.put(*args, **kwargs)
-
-    def sample(self, *args, **kwargs):
-        try:
-            return self._buffer.sample(*args, **kwargs)
-        except Exception as e:
-            return None
-
-    def clear(self):
-        self._buffer.clear()
-
-    def popn(self, *args, **kwargs):
-        self._buffer.popn(*args, **kwargs)
-
-    def popnleft(self, *args, **kwargs):
-        self._buffer.popnleft(*args, **kwargs)
-
+   
 
 class TestListReplayBuffer(unittest.TestCase):
     
-    def test_rb_list(self):
-        num_process = 5
-        subproc_args = [dict(subproc=BaseTestProcess)]
-        for _ in range(num_process-1):
-            subproc_args.append(dict(
-                subproc=ReplayBufferProcess,
-                enable_flush=True,
-            ))
-
+    def setUp(self):
         file = tempfile.NamedTemporaryFile()
-        proc = mp.lanuch(
+        args = [{'target': TestTarget}] + [{'target': ReplayBuffer}] * random.randint(1, 10)
+        self.lanucher = mp.lanuch_async(
             manager=Manager,
-            subproc_args=subproc_args,
+            args = args,
             rpc = {
-                'init_method': f'file://{file.name}'
+                'init_method': f'file://{file.name}',
+                'world_size': len(args)
             },
+            capacity=100
         )
-        for it in proc.manager.result:
-            getattr(self, it[0])(*it[1:])
+
+    def tearDown(self) -> None:
+        self.lanucher.join()
+
+
+    def test_rb_list_append(self, test=False, tself=None):
+        if not test: return
+
+        # append a few
+        num_data = random.randint(tself.capacity // 3, tself.capacity // 2)
+        futures.wait_all([self.rb().rpc_async().append(i) for i in range(num_data)])
+        self.cases.append(('assertEqual', self.rb().rpc_sync().size(), num_data, 'put'))
+        self.assertEqual()
+
+        # put overflow
+        self.rb().rpc_sync().put(*list(range(self.capacity)))
+        self.cases.append(('assertEqual', self.rb().rpc_sync().size(), self.capacity, 'put overflow'))
 
 
 

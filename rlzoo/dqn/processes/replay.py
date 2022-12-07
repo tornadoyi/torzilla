@@ -3,12 +3,12 @@ from rlzoo.zoo.role import Role
 
 
 class ReplayBuffer(Role):
-    def _on_start(self):
+    def _start(self):
         master = self.manager.replay_buffer
         self._buffer = ListReplayBuffer(master=master)
         self._buffer.start()
 
-    def _on_exit(self, *args, **kwargs):
+    def _exit(self, *args, **kwargs):
         self._buffer.exit()
 
     def __getattr__(self, name):

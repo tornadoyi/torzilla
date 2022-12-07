@@ -3,17 +3,14 @@ import random
 import numpy as np
 import torzilla.multiprocessing as mp
 
-class MainProcess(mp.MainProcess):
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
+class MainTarget(mp.Target):
+    def _run(self):
         self.result = None
+        cases = self.manager().list()
+        na, nb = self.kwargs()['num_a'], self.kwargs()['num_b']
+        gear_a, gear_b = self.manager().gear_a, self.manager().gear_b
 
-    def _on_start(self, *args, **kwargs):
-        cases = self.manager.list()
-        na, nb = self.kwargs['num_proc_a'], self.kwargs['num_proc_b']
-        gear_a, gear_b = self.manager.gear_a, self.manager.gear_b
-
-        # # test apply
+        # test apply
         for i in range(10):
             a1, a2 = random.randint(0, 100), random.randint(0, 100)
             b1, b2 = random.randint(0, 100), random.randint(0, 100)
@@ -52,55 +49,56 @@ class MainProcess(mp.MainProcess):
         cases.append(('assertEqual', ex, True, 'add aync'))
         self.result = list(cases)
 
-    def _on_exit(self):
-        self.manager.close_gears()
+    def _exit(self):
+        self.manager().close_gears()
         
 
 class Manager(mp.Manager):
-    def _on_start(self, *args, **kwargs):
-        kwds = mp.Process.current().kwargs
-        self.gear_a = self.Gear(kwds['num_proc_a'])
-        self.gear_b = self.Gear(kwds['num_proc_b'])
+    def _start(self):
+        kwds = mp.current_target().kwargs()
+        self.gear_a = self.Gear(kwds['num_a'])
+        self.gear_b = self.Gear(kwds['num_b'])
 
-    def close_gears(self, *args, **kwargs):
+    def close_gears(self):
         self.gear_a.close()
         self.gear_b.close()
 
 
-class Subprocess(mp.Subprocess):
-    def _on_start(self):
+class Target(mp.Target):
+    def _run(self):
         def dispatch(method, *args, **kwargs):
             return getattr(self, method)(*args, **kwargs)
         gear = self.get_gear()
-        conn = gear.connect(dispatch)
-        conn.join()
+        self._conn = gear.connect(dispatch)
+
+    def _exit(self):
+        self._conn.join()
 
     def add(self, a, b): return a + b
 
-class SubprocessA(Subprocess):
+class TargetA(Target):
     def get_gear(self): 
-        return self.manager.gear_a
+        return self.manager().gear_a
 
-class SubprocessB(Subprocess):
+class TargetB(Target):
     def get_gear(self): 
-        return self.manager.gear_b     
+        return self.manager().gear_b     
     
 class TestGear(unittest.TestCase):
-    
+
     def test_mp_gear(self):
-        subproc_args = []
+        args = []
         na, nb = random.randint(3, 10), random.randint(3, 10)
         for _ in range(na):
-            subproc_args.append(dict(subproc=SubprocessA))
+            args.append(dict(target=TargetA))
         for _ in range(nb):
-            subproc_args.append(dict(subproc=SubprocessB))
+            args.append(dict(target=TargetB))
         proc = mp.lanuch(
-            na + nb,
-            mainproc=MainProcess,
+            main=MainTarget,
             manager=Manager,
-            subproc_args = subproc_args,
-            num_proc_a = na,
-            num_proc_b = nb,
+            args = args,
+            num_a = na,
+            num_b = nb,
         )
 
         for it in proc.result:

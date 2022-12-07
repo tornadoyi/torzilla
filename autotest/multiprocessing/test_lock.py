@@ -4,31 +4,31 @@ from collections import defaultdict
 import torzilla.multiprocessing as mp
 
 class Manager(mp.Manager):
-    def _on_start(self, *args, **kwargs):
-        kwargs = mp.Process.current().kwargs
+    def _start(self):
+        kwargs = mp.current_target().kwargs()
         if kwargs['lock_type'] == 'manager':
             self.mutex = self.RWLock(kwargs['w_first'])
         else:
             self.mutex = mp.RWLock(kwargs['w_first'])
         self.value = self.Value('i', 0)
-        self.barrier = self.Barrier(parties=mp.Process.current().num_process)
+        self.barrier = self.Barrier(parties=mp.current_target().num_process())
         self.event = self.list()
 
-    def _on_exit(self, *args, **kwargs):
+    def _exit(self):
         self.results = {
             'value': self.value.value,
             'event': list(self.event)
         }
 
-class Subprocess(mp.Subprocess):
-    def _on_start(self):
-        num_step = self.kwargs.get('num_step', 1)
-        step_sleep = self.kwargs.get('step_sleep', 0)
-        lock_sleep = self.kwargs.get('lock_sleep', 0)
-        pre_sleep = self.kwargs.get('pre_sleep', 0)
+class Target(mp.Target):
+    def _run(self):
+        num_step = self.kwargs().get('num_step', 1)
+        step_sleep = self.kwargs().get('step_sleep', 0)
+        lock_sleep = self.kwargs().get('lock_sleep', 0)
+        pre_sleep = self.kwargs().get('pre_sleep', 0)
 
-        lock = self.manager.mutex.rlock() if self.who() == 'r' else self.manager.mutex.wlock()
-        self.manager.barrier.wait()
+        lock = self.manager().mutex.rlock() if self.who() == 'r' else self.manager().mutex.wlock()
+        self.manager().barrier.wait()
 
         time.sleep(pre_sleep)
         for i in range(num_step):
@@ -48,31 +48,31 @@ class Subprocess(mp.Subprocess):
     def _step(self): pass
 
     def event(self, *args):
-        self.manager.event.append((self.who(),) + args)
+        self.manager().event.append((self.who(),) + args)
 
 
-class Reader(Subprocess):
+class Reader(Target):
     def _step(self):
-        self.event('value', self.manager.value.value)
+        self.event('value', self.manager().value.value)
 
 
-class Writer(Subprocess):
+class Writer(Target):
     def _step(self):
-        self.manager.value.value += 1
+        self.manager().value.value += 1
             
 
-class TestProcess(unittest.TestCase):
+class TestRWLock(unittest.TestCase):
     def test_mp_rwlock_w_first(self):
 
         pre_reader = [
-            {'subproc': Reader, 'pre_sleep': 0, 'lock_sleep': 0.1},
+            {'target': Reader, 'pre_sleep': 0, 'lock_sleep': 0.1},
         ] * 3
         writer = [
-            {'subproc': Writer, 'pre_sleep': 0.05, 'lock_sleep': 0.2},
-            {'subproc': Writer, 'pre_sleep': 0.2, 'lock_sleep': 0.2},
+            {'target': Writer, 'pre_sleep': 0.05, 'lock_sleep': 0.2},
+            {'target': Writer, 'pre_sleep': 0.2, 'lock_sleep': 0.2},
         ]
         post_reader = [
-            {'subproc': Reader, 'pre_sleep': 0.1, 'lock_sleep': 0.1},
+            {'target': Reader, 'pre_sleep': 0.1, 'lock_sleep': 0.1},
         ] * 5
         subargs = pre_reader + writer + post_reader
         
@@ -94,22 +94,22 @@ class TestProcess(unittest.TestCase):
 
         for lock_type in ['manager', 'mp']:
             results = mp.lanuch(
-                subproc_args=subargs, manager=Manager, 
+                args=subargs, manager=Manager, 
                 w_first = True, lock_type = lock_type
-            ).manager.results
+            ).manager().results
             check(results)
 
     def test_mp_rwlock_r_first(self):
         pre_reader = [
-            {'subproc': Reader, 'pre_sleep': 0, 'lock_sleep': 0.1},
+            {'target': Reader, 'pre_sleep': 0, 'lock_sleep': 0.1},
         ] * 3
         writer = [
-            {'subproc': Writer, 'pre_sleep': 0.05, 'lock_sleep': 0.2},
-            {'subproc': Writer, 'pre_sleep': 0.2, 'lock_sleep': 0.2},
+            {'target': Writer, 'pre_sleep': 0.05, 'lock_sleep': 0.2},
+            {'target': Writer, 'pre_sleep': 0.2, 'lock_sleep': 0.2},
         ]
         post_reader = [
-            {'subproc': Reader, 'pre_sleep':0.08, 'lock_sleep': 0.2},
-            {'subproc': Reader, 'pre_sleep':0.2, 'lock_sleep': 0.2},
+            {'target': Reader, 'pre_sleep':0.08, 'lock_sleep': 0.2},
+            {'target': Reader, 'pre_sleep':0.2, 'lock_sleep': 0.2},
         ] * 5
         subargs = pre_reader + writer + post_reader
 
@@ -122,9 +122,9 @@ class TestProcess(unittest.TestCase):
 
         for lock_type in ['manager', 'mp']:
             results = mp.lanuch(
-                subproc_args=subargs, manager=Manager, 
+                args=subargs, manager=Manager, 
                 w_first = False, lock_type = lock_type
-            ).manager.results
+            ).manager().results
             check(results)
 
 

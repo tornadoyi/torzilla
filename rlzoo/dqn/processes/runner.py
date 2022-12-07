@@ -5,7 +5,7 @@ from rlzoo.zoo.role import Role
 
 
 class Runner(Role):
-    def _on_start(self, *args, **kwargs):
+    def _start(self, *args, **kwargs):
 
         # workers
         steps, count = 0, 10

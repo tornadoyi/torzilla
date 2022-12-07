@@ -7,7 +7,7 @@ from rlzoo.zoo.role import Role
 
 
 class Worker(Role):
-    def _on_start(self, *args, **kwargs):
+    def _start(self, *args, **kwargs):
         t_upload = self._start_upload()
         self.manager.worker.gear.join()
         t_upload.join()
@@ -58,7 +58,7 @@ class Subworker(mp.Subprocess):
         self._env = gym.make(cfg['id'])
         self._observation = None
 
-    def _on_start(self, *args, **kwargs):
+    def _start(self, *args, **kwargs):
         self.manager.worker.gear.connect(
             lambda method, *args, **kwargs: getattr(self, method)(*args, **kwargs)
         ).join()

@@ -5,7 +5,7 @@ class _Core(object):
     def __init__(self, w_first):
         '''
         _state:
-              0: no ops
+             =0: no ops
              >0: read
              <0: write 
         '''

@@ -30,10 +30,10 @@ class DictParameterBuffer(BaseParameterBuffer):
     def size(self):
         return len(self)
 
-    def _on_start(self):
-        super()._on_start()
+    def _start(self):
+        super()._start()
         if self.is_master():
-            manager = mp.Process.current().manager
+            manager = mp.current_target().manager
             self._M = manager.dict()
             self._N = manager.dict()
             self._attr = manager.Namespace()

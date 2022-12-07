@@ -1,23 +1,24 @@
-from torzilla.core import object
+from torzilla import multiprocessing as mp
 
-class BaseReplayBuffer(object.Context):
-    def __init__(self, master=None):
+class BaseReplayBuffer(object):
+    def __init__(self, master=None, manager=None):
         super().__init__()
         self._master = master
-
-    @property
-    def master(self): return self._master
+        self._manager = manager or mp.current_target().manager()
 
     def is_master(self): return self._master is None
 
+    def manager_create(self, name, *args, **kwargs):
+        f_create = getattr(self._manager, name, None)
+        if f_create is None:
+            raise AttributeError(f'{name} depended by {self} is not found in manager, need register first')
+        return f_create(*args, **kwargs)
+        
     def __len__(self): 
         raise NotImplementedError(f'{type(self)}.__len__ is not implemented')
 
-    def put(self, *args, **kwargs):
+    def put(self):
         raise NotImplementedError(f'{type(self)}.put is not implemented')
 
-    def sample(self, *args, **kwargs):
+    def sample(self):
         raise NotImplementedError(f'{type(self)}.sample is not implemented')
-
-    def sample_by(self, sampler, *args, **kwargs):
-        return sampler(self, *args, **kwargs)

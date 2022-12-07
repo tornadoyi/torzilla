@@ -4,8 +4,8 @@ from rlzoo.zoo import gym
 from ..agent import Agent
 
 class Manager(mp.Manager):
-    def _on_start(self, *args, **kwargs):
-        config = mp.Process.current().kwargs['config']
+    def _start(self, *args, **kwargs):
+        config = mp.current_target().kwargs['config']
 
         # replay buffer
         cfg = config['replay_buffer']
