@@ -51,7 +51,7 @@ class Worker(Role):
         return t
 
 
-class Subworker(mp.Subprocess):
+class Subworker(mp.Target):
     def __init__(self, index, manager, **kwargs) -> None:
         super().__init__(index, manager, **kwargs)
         cfg = self.kwargs['config']['env']

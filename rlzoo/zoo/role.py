@@ -3,7 +3,7 @@ from torch import futures
 from torzilla import multiprocessing as mp
 from torzilla import rpc
 
-class Role(mp.Subprocess):
+class Role(mp.Target):
     def remotes(self, name):
         param_name = f'_{name}'
         rrefs = getattr(self, param_name, None)

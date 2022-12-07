@@ -1,6 +1,6 @@
 from torch import multiprocessing as mp
 from torzilla.multiprocessing.target import Target, _register_target
-from torzilla.threading import Result, Thread
+from torzilla.threading import Result, Thread, Event
 from . import parser
 
 
@@ -10,18 +10,21 @@ def lanuch(*args, **kwargs):
 
 def lanuch_async(*args, **kwargs):
     result = kwargs['result__'] = Result()
+    start_event = kwargs['start_event__'] = Event()
     Thread(target=_launch, args=args, kwargs=kwargs).start()
+    start_event.wait()
     return result
         
 
 def _launch(
-    result__=None,
     num_process=None,
     main=None,
     manager=None,
     target=None,
     args=None,
     rpc=None,
+    result__=None,
+    start_event__=None,
     **shared_args,
 ):
     # parse
@@ -39,6 +42,7 @@ def _launch(
     args = parsed_args['args']
     manager = parsed_args['manager']
     result = result__
+    start_event = start_event__
     
     # create barrier for sync processes
     barrier = mp.Barrier(num_process + 1)
@@ -71,6 +75,8 @@ def _launch(
     for p in processes:
         p.start()
     main.start()
+    if start_event: start_event.set()
+
     
     # run
     main.run()
@@ -84,7 +90,7 @@ def _launch(
         p.join()
     
     if result:
-        result._set((True, main))
+        result._set(0, (True, main))
 
     return main
 

@@ -3,6 +3,7 @@ from enum import Enum
 import torch.multiprocessing as mp
 from torzilla.core import pick_args
 from torzilla import rpc
+from torzilla import threading
 
 def current_target():
     proc = mp.current_process()
@@ -49,8 +50,9 @@ class Target(object):
         self._num_process = num_process__
         self._barrier = barrier__
         self._kwargs = kwargs
-        self._rref = None 
+        self._rref = None
         self._state = State.Init
+        self._rpc_evt = threading.Event()
 
     def __enter__(self):
         self.start()
@@ -77,7 +79,12 @@ class Target(object):
     def state(self):
         return self._state
 
-    def rref(self): 
+    def rref(self):
+        if self._rref:
+            return self._rref
+        if not rpc.is_init():
+            raise RuntimeError(f'access RRef from rpc uninitialized target {self}')
+        self._rpc_evt.wait()
         return self._rref
         
     def start(self):
@@ -104,6 +111,7 @@ class Target(object):
         rpc_args = pick_args(kwargs, keys, drop_none=True)
         rpc.init_rpc(**rpc_args)
         self._rref = rpc.RRef(self)
+        self._rpc_evt.set()
 
     def _start(self): pass
 

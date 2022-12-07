@@ -13,8 +13,8 @@ class ListReplayBuffer(BaseReplayBuffer):
             self._mlock = self.manager_create('RWLock')
         else:
             self._store = self._master._store
-
-    def capacity(self): return self._capacity
+            self._qlock = self._master._qlock
+            self._mlock = self._master._mlock
 
     def __len__(self):
         with self._mlock.rlock(), self._qlock.rlock():
@@ -24,12 +24,29 @@ class ListReplayBuffer(BaseReplayBuffer):
         with self._qlock.wlock():
             self._store.append(value)
 
+    def capacity(self): 
+        return self._store.capacity()
+
+    def clear(self):
+        with self._qlock.wlock(), self._mlock.wlock():
+            self._store.clear()
+
     def extend(self, values):
         with self._qlock.wlock():
             self._store.extend(values)
 
-    def sample(self, size, by=None): 
-        def _sample(size):
+    def pop(self):
+        with self._qlock.wlock(), self._mlock.wlock():
+            self._store.flush()
+            self._store.pop()
+
+    def popn(self, n=1):
+        with self._qlock.wlock(), self._mlock.wlock():
+            self._store.flush()
+            self._store.popn(n)
+
+    def sample(self, size, by=None, **kwargs): 
+        def _sample(self, size, **kwargs):
             # uniform sample
             indexes = np.random.randint(low=0, high=len(self._store), size=size).tolist()
             return self._store[indexes]
@@ -38,23 +55,11 @@ class ListReplayBuffer(BaseReplayBuffer):
         if self._store.qsize() > 0:
             with self._qlock.wlock(), self._mlock.wlock():
                 self._store.flush()
-                return sampler(size)
+                return sampler(self, size, **kwargs)
         else:
             with self._mlock.rlock():
-                return sampler(size)
-           
-    def clear(self):
-        with self._qlock.wlock(), self._mlock.wlock():
-            self._store.clear()
-
-    def pop(self):
-        with self._qlock.wlock(), self._mlock.wlock():
-            self._store.pop()
-
-    def popn(self, n=1):
-        with self._qlock.wlock(), self._mlock.wlock():
-            self._store.popn(n)
-
+                return sampler(self, size, **kwargs)
+        
 
 class _Store(object):
     Name = '_ListReplayBufferStore'
@@ -64,13 +69,16 @@ class _Store(object):
         self._Q = []
 
     def __getitem__(self, key):
-        return self._Q[key]
+        return self._M[key]
 
     def __len__(self):
-        return max(len(self._M) + len(self._Q), self._M.capacity())
+        return min(len(self._M) + len(self._Q), self._M.capacity())
     
     def append(self, value):
         self._Q.append(value)
+
+    def capacity(self):
+        return self._M.capacity() 
 
     def clear(self):
         self._Q.clear()
@@ -90,13 +98,13 @@ class _Store(object):
         self._M.popn(n)
     
     def qsize(self):
-        return len(self.Q)
+        return len(self._Q)
 
 
 
-class _StoreProxy (MakeProxyType('GearProxy', (
+class _StoreProxy (MakeProxyType('__StoreProxy', (
     '__getitem__', '__len__', 
-    'append', 'clear', 'extend', 'flush', 'pop', 'popn', 'qsize',
+    'append', 'capacity', 'clear', 'extend', 'flush', 'pop', 'popn', 'qsize', 'sample',
 ))):
     pass
 

@@ -1,1 +1,1 @@
-from .lanucher import lanuch
+from .lanucher import lanuch, lanuch_async

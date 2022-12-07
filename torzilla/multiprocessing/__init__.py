@@ -1,5 +1,5 @@
 from torch.multiprocessing import *
-from .lanucher import lanuch
+from .lanucher import lanuch, lanuch_async
 from .target import Target, current_target, current_target_rref
 from .manager import Manager
 from .rwlock import RWLock
