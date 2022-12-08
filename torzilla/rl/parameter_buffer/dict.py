@@ -1,86 +1,79 @@
-from collections import namedtuple
-from torzilla import multiprocessing as mp
+from torzilla import NotExist
 from .base import BaseParameterBuffer
 
-__Node = namedtuple('_Node', ['prev', 'next'], defaults=[None, None])
-class _Node(__Node):
-    def copy(self, **kwargs):
-        return _Node(
-            kwargs.get('prev', self.prev),
-            kwargs.get('next', self.next),
-        )
-        
+
+class _Item(object):
+    def __init__(self, value, meta):
+        self.value = value
+        self.meta = meta
+
+
 class DictParameterBuffer(BaseParameterBuffer):
     DEFAULT_KEY = '__DEFAULT__'
 
-    def __init__(self, capacity=None, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
         if self.is_master():
-            self._capacity = capacity
+            self._store = self.manager_create('dict')
+            self._lock = self.manager_create('RWLock')
         else:
-            self._capacity = self.master.capacity
-
-    @property
-    def capacity(self): return self._capacity
+            self._store = self._master._store
+            self._lock = self._master._lock
 
     def __len__(self):
         with self._lock.rlock():
-            return len(self._M)
-
-    def size(self):
-        return len(self)
-
-    def _start(self):
-        super()._start()
-        if self.is_master():
-            manager = mp.current_target().manager
-            self._M = manager.dict()
-            self._N = manager.dict()
-            self._attr = manager.Namespace()
-            self._attr.head = None
-            self._attr.tail = None
-            self._lock = manager.RWLock()
-        else:
-            self._M = self.master._M
-            self._N = self.master._N
-            self._attr = self.master._attr
-            self._lock = self.master._lock
-
-    def put(self, data, meta=None, key=DEFAULT_KEY):
-        with self._lock.wlock():
-            # update data
-            self._M[key] = (data, meta)
-
-            # update node
-            node = self._N.get(key)
-            if node is None:
-                node = self._N[key] = _Node()
-            self._refresh_node(node)
-
-    def get(self, param=True, meta=False, key=DEFAULT_KEY):
-        with self._lock.rlock():
-            pass
+            return len(self._store)
 
     def clear(self):
         with self._lock.wlock():
-            self._M.clear()
-            self._attr.head = None
-            self._attr.tail = None
+            self._store.clear()
+    
+    def get(self, value=True, meta=False, key=DEFAULT_KEY):
+        with self._lock.rlock():
+            item = self._store.get(key, None)
+        if not item:
+            raise KeyError(f'key {key} not exists')
+        ans = []
+        if value: ans.append(item.value)
+        if meta: ans.append(item.meta)
+        if len(ans) == 0:
+            return None
+        elif len(ans) == 1:
+            return ans[0]
+        else:
+            return tuple(ans)
 
-    def _refresh_node(self, key, node):
-        # remove
-        if node.prev:
-            prev = self._N[node.prev]
-            self._N[node.prev] = prev.copy(next=node.next)
-        if node.next:
-            next = self._N[node.next]
-            self._N[node.next] = next.copy(prev=node.prev)
+    def keys(self):
+        with self._lock.rlock():
+            keys = self._store.keys()
+        return tuple(keys)
 
-        # update tail
-        node = node.copy(prev=self._attr.tail, next=None)
-        if self._attr.tail:
-            tail = self._N[self._attr.tail]
-            self._N[self._attr.tail] = tail.copy(next=key)
-        self._attr.tail = key
+    def put(self, value=NotExist, meta=NotExist, key=DEFAULT_KEY):
+        with self._lock.wlock():
+            item = self._store.get(key, None)
+            if item is None:
+                if value is None:
+                    raise ValueError(f'put a new key "{key}" without value')
+                self._store[key] =_Item(value, meta)
+            else:
+                if value is not NotExist:
+                    item.value = value
+                if meta is not NotExist:
+                    item.meta = meta
 
-        # update head
+    def remove(self, key, ignore_errors=False):
+        with self._lock.wlock():
+            try:
+                del self._store[key]
+            except Exception as e:
+                if not ignore_errors:
+                    raise e 
+
+    def removes(self, keys, ignore_errors=False):
+        with self._lock.wlock():
+            for key in keys:
+                try:
+                    del self._store[key]
+                except Exception as e:
+                    if not ignore_errors:
+                        raise e 
