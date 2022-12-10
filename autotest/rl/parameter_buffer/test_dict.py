@@ -83,7 +83,7 @@ class TestTarget(mp.Target):
         self.init_parameter_buffer()
         gt_keys = list(self.ps().rpc_sync().keys())
 
-        i = random.randint(0, len(gt_keys))
+        i = random.randint(0, len(gt_keys)-1)
         rk = gt_keys[i]
         del gt_keys[i]
         self.ps().rpc_sync().remove(rk)
@@ -96,10 +96,9 @@ class TestTarget(mp.Target):
         self.init_parameter_buffer()
         gt_keys = list(self.ps().rpc_sync().keys())
 
-        rkeys = []
-        for i in np.random.randint(0, len(gt_keys), size=len(gt_keys) // 2):
-            rkeys.append(gt_keys[i])
-            del gt_keys[i]
+        ridxes = set(np.random.randint(0, len(gt_keys)-1, size=len(gt_keys) // 2))
+        rkeys = [key for i, key in enumerate(gt_keys) if i in ridxes]
+        gt_keys = [key for i, key in enumerate(gt_keys) if i not in ridxes]
         self.ps().rpc_sync().removes(rkeys)
 
         keys = self.ps().rpc_sync().keys()
@@ -110,7 +109,7 @@ class TestTarget(mp.Target):
         N = 10
         values, metas = {}, {}
         futs = []
-        for i in range(random.randint(0, 10)):
+        for i in range(random.randint(1, 10)):
             key = str(f'model-{i}')
             # num prameter
             state_dict = {}
