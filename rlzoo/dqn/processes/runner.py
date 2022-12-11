@@ -43,3 +43,6 @@ class Runner(Role):
     def _terminate(self):
         for rref in self.remotes('worker'):
             rref.rpc_sync().close()
+
+        for rref in self.remotes('learner'):
+            rref.rpc_sync().close()

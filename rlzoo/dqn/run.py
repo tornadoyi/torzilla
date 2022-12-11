@@ -25,7 +25,10 @@ CONFIG = odcit(
     replay_buffer = odcit(
         num_process = A(type=int, default=3),
         capacity = A(type=int, default=_BATCH_SIZE*3),
-        max_cache_size = A(type=int, default=_BATCH_SIZE*3),
+    ),
+
+    ps = dict(
+        num_process = A(type=int, default=1),
     ),
 
     agent = odcit(
@@ -72,6 +75,17 @@ def prepare_roles(config):
             target = Subworker,
         ))
 
+    # learner
+    for i in range(config['learner']['num_process']):
+        procs.append(dict(
+            target = Learner,
+            rpc = dict(
+                rank = get_rank(),
+                name = f'learner-{i}',
+                **rpc_args
+            ),
+        ))
+
     # replay buffer
     for i in range(config['replay_buffer']['num_process']):
         procs.append(dict(
@@ -79,6 +93,17 @@ def prepare_roles(config):
             rpc = dict(
                 rank = get_rank(),
                 name = f'replay_buffer-{i}',
+                **rpc_args
+            ),
+        ))
+
+    # parameter server
+    for i in range(config['ps']['num_process']):
+        procs.append(dict(
+            target = ParameterServer,
+            rpc = dict(
+                rank = get_rank(),
+                name = f'ps-{i}',
                 **rpc_args
             ),
         ))
