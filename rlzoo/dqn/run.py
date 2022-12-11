@@ -50,41 +50,37 @@ def prepare_roles(config):
     
     # runner
     procs.append(dict(
-        subproc = Runner,
+        target = Runner,
         rpc = dict(
             rank = get_rank(),
             name = 'runner-0',
             **rpc_args
         ),
-        config = config
     ))
 
     # worker
     procs.append(dict(
-        subproc = Worker,
+        target = Worker,
         rpc = dict(
             rank = get_rank(),
             name = f'worker-0',
             **rpc_args
         ),
-        config = config
     ))
     for _ in range(config['worker']['num_process']):
         procs.append(dict(
-            subproc = Subworker,
-            config = config
+            target = Subworker,
         ))
 
     # replay buffer
     for i in range(config['replay_buffer']['num_process']):
         procs.append(dict(
-            subproc = ReplayBuffer,
+            target = ReplayBuffer,
             rpc = dict(
                 rank = get_rank(),
                 name = f'replay_buffer-{i}',
                 **rpc_args
             ),
-            config = config
         ))
 
     world_size = get_rank()
@@ -97,12 +93,12 @@ def prepare_roles(config):
 
 
 def main():
-    args = tz.parse_hargs(CONFIG)
-    subproc_args = prepare_roles(args)
+    config = tz.parse_hargs(CONFIG)
+    args = prepare_roles(config)
     mp.lanuch(
-        subproc_args = subproc_args,
+        args = args,
         manager = Manager,
-        config = args
+        config = config
     )
     
 

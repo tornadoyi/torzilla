@@ -9,7 +9,7 @@ class Role(mp.Target):
         rrefs = getattr(self, param_name, None)
         if rrefs is None:
             rrefs = futures.wait_all([
-                rpc.rpc_async(info, mp.Process.current_rref) 
+                rpc.rpc_async(info, mp.current_target_rref) 
                 for info in rpc.get_worker_infos() 
                 if info.name.startswith(name)
             ])

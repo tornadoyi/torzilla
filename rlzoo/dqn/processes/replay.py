@@ -4,21 +4,17 @@ from rlzoo.zoo.role import Role
 
 class ReplayBuffer(Role):
     def _start(self):
-        master = self.manager.replay_buffer
+        master = self.manager().replay_buffer
         self._buffer = ListReplayBuffer(master=master)
-        self._buffer.start()
-
-    def _exit(self, *args, **kwargs):
-        self._buffer.exit()
-
-    def __getattr__(self, name):
-        return getattr(self._buffer, name)
 
     def size(self):
         return len(self._buffer)
 
-    def put(self, *args, **kwargs):
-        return self._buffer.put(*args, **kwargs)
+    def append(self, *args, **kwargs):
+        return self._buffer.append(*args, **kwargs)
+
+    def extend(self, *args, **kwargs):
+        return self._buffer.extend(*args, **kwargs)
 
     def sample(self, *args, **kwargs):
         return self._buffer.sample(*args, **kwargs)

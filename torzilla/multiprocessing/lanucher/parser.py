@@ -81,7 +81,7 @@ def _parse_rpc(shared_rpc, rpc_args):
         return None, rpc_args
 
     # main rpc
-    enable_main_rpc = shared_rpc.get('enable_main_rpc', False)
+    enable_main_rpc = shared_rpc.get('enable_main_rpc', False) if shared_rpc else False
     assert_type(enable_main_rpc, bool, null=False)
 
     # word size

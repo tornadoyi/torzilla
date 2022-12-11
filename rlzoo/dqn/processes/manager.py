@@ -5,15 +5,13 @@ from ..agent import Agent
 
 class Manager(mp.Manager):
     def _start(self, *args, **kwargs):
-        config = mp.current_target().kwargs['config']
+        config = mp.current_target().kwargs()['config']
 
         # replay buffer
         cfg = config['replay_buffer']
         self.replay_buffer = ListReplayBuffer(
             capacity=cfg['capacity'], 
-            max_cache_size=cfg['max_cache_size']
         )
-        self.replay_buffer.start()
 
         # worker
         cfg = config['worker']

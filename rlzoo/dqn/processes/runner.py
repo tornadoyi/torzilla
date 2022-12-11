@@ -5,11 +5,11 @@ from rlzoo.zoo.role import Role
 
 
 class Runner(Role):
-    def _start(self, *args, **kwargs):
+    def _run(self):
 
         # workers
         steps, count = 0, 10
-        for i in range(1):
+        for i in range(2):
             print(f'round {i} start')
             futs = [
                 rref.rpc_async().run_env(steps, steps + count)
@@ -42,4 +42,4 @@ class Runner(Role):
     
     def _terminate(self):
         for rref in self.remotes('worker'):
-            rref.rpc_async().close()
+            rref.rpc_sync().close()

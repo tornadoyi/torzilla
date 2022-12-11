@@ -7,13 +7,15 @@ from rlzoo.zoo.role import Role
 
 
 class Worker(Role):
-    def _start(self, *args, **kwargs):
+    def _run(self):
         t_upload = self._start_upload()
-        self.manager.worker.gear.join()
+        self.manager().worker.gear.join()
+        print('gear join finish')
         t_upload.join()
+        print('upload finish')
 
     def run_env(self, start_step, end_step):
-        return self.manager.worker.gear.apply(
+        return self.manager().worker.gear.apply(
             'run_env',
             start_step,
             end_step
@@ -23,10 +25,10 @@ class Worker(Role):
         pass
 
     def close(self):
-        self.manager.worker.gear.close()
+        self.manager().worker.gear.close()
 
     def _start_upload(self, timeout=0.5):
-        Q = self.manager.worker.queue
+        Q = self.manager().worker.queue
         datas = []
         def _upload():
             nonlocal datas
@@ -36,14 +38,14 @@ class Worker(Role):
 
             if len(datas) > 0:
                 rb = self.remote('replay')
-                rb.rpc_sync().put(*datas)
+                rb.rpc_sync().extend(datas)
                 datas = []
             else:
                 time.sleep(timeout)
 
         def _loop():
-            gear = self.manager.worker.gear
-            while gear.running:
+            gear = self.manager().worker.gear
+            while gear.running():
                 _upload()
 
         t = threading.Thread(target=_loop)
@@ -52,20 +54,18 @@ class Worker(Role):
 
 
 class Subworker(mp.Target):
-    def __init__(self, index, manager, **kwargs) -> None:
-        super().__init__(index, manager, **kwargs)
-        cfg = self.kwargs['config']['env']
+    def _run(self):
+        cfg = self.kwargs()['config']['env']
         self._env = gym.make(cfg['id'])
         self._observation = None
 
-    def _start(self, *args, **kwargs):
-        self.manager.worker.gear.connect(
+        self.manager().worker.gear.connect(
             lambda method, *args, **kwargs: getattr(self, method)(*args, **kwargs)
         ).join()
 
     def run_env(self, start_step, end_step):
-        Q = self.manager.worker.queue
-        agent = self.manager.worker.agent
+        Q = self.manager().worker.queue
+        agent = self.manager().worker.agent
         
         for step in range(start_step, end_step, 1):
             # reset
