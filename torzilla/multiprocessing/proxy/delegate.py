@@ -54,7 +54,7 @@ class Delegate(object):
     def __exit__(self, exc, val, tb):
         return self._call_delegated_method(
             '__exit__',
-            exc, val, tb
+            exc, val, None
         )
         
     def __getattr__(self, name):
