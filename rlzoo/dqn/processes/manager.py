@@ -14,18 +14,13 @@ class Manager(mp.Manager):
         ns.gear = self.Gear(cfg['num_process'])
         ns.queue = self.Queue()
 
-        # worker's agent
-        cfg = config['agent']
-        env = gym.make(**config['env'])
-        ns.agent = Agent(env.observation_space, env.action_space, **cfg)
-
         # learner
         cfg = config['learner']
         ns = self.learner = self.Namespace()
         ns.gear = self.Gear(cfg['num_process'])
 
         # replay buffer
-        cfg = config['replay_buffer']
+        cfg = config['replay']
         self.replay_buffer = ListReplayBuffer(
             capacity=cfg['capacity'], 
         )
@@ -33,5 +28,9 @@ class Manager(mp.Manager):
         # ps
         cfg = config['ps']
         self.ps = DictParameterBuffer()
+
+    def _exit(self):
+        self.worker.gear.close()
+        self.learner.gear.close()
 
         

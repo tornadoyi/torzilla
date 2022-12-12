@@ -5,7 +5,7 @@ from torzilla import rpc
 
 class Role(mp.Target):
     def remotes(self, name):
-        param_name = f'_{name}'
+        param_name = f'__remotes__{name}__'
         rrefs = getattr(self, param_name, None)
         if rrefs is None:
             rrefs = futures.wait_all([
@@ -13,6 +13,8 @@ class Role(mp.Target):
                 for info in rpc.get_worker_infos() 
                 if info.name.startswith(name)
             ])
+            if len(rrefs) == 0:
+                raise AttributeError(f'rpc worker with prefix "{name}" is not exist')
             setattr(self, param_name, rrefs)
         return rrefs
 

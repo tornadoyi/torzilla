@@ -4,53 +4,50 @@ from torzilla import multiprocessing as mp
 from torzilla import threading
 from rlzoo.zoo import gym
 from rlzoo.zoo.role import Role
-
+from ..agent import Agent
 
 class Worker(Role):
-    def _run(self):
-        t_upload = self._start_upload()
-        self.manager().worker.gear.join()
-        print('gear join finish')
-        t_upload.join()
-        print('upload finish')
+    def _start(self):
+        config = self.kwargs()['config']
+        ns = self.manager().worker
+        env = gym.make(**config['env'])
+        cfg = config['agent']
+        ns.agent = Agent(env.observation_space, env.action_space, **cfg)
+        ns.lock = self.manager().RWLock()
 
-    def run_env(self, start_step, end_step):
-        return self.manager().worker.gear.apply(
-            'run_env',
-            start_step,
-            end_step
-        )
+    def run_env(self, num_steps):
+        Q = self.manager().worker.queue
+        gear = self.manager().worker.gear
 
-    def pull(self):
-        pass
+        # upload thread
+        def _batch_upload():
+            remain_data = num_steps * gear.connections()
+            while remain_data > 0:
+                # print(f'remain_data: {remain_data}')
+                qsize = Q.qsize()
+                if qsize == 0:
+                    time.sleep(0.5)
+                    continue
+                datas = [Q.get() for _ in range(qsize)]
+                self.remote('replay').rpc_sync().extend(datas)
+                remain_data -= len(datas)
+
+        # start thread
+        t = threading.Thread(target=_batch_upload)
+        t.start()
+        
+        # apply
+        gear.apply('run_env', num_steps)
+        t.join()
+
+    def pull_model(self):
+        state_dict, meta = self.remote('ps').rpc_sync().get(meta=True)
+        agent = self.manager().worker.agent
+        with self.manager().worker.lock.wlock():
+            agent.load_state_dict(state_dict)
 
     def close(self):
         self.manager().worker.gear.close()
-
-    def _start_upload(self, timeout=0.5):
-        Q = self.manager().worker.queue
-        datas = []
-        def _upload():
-            nonlocal datas
-            num_data = Q.qsize()
-            for _ in range(num_data):
-                datas.append(Q.get())
-
-            if len(datas) > 0:
-                rb = self.remote('replay')
-                rb.rpc_sync().extend(datas)
-                datas = []
-            else:
-                time.sleep(timeout)
-
-        def _loop():
-            gear = self.manager().worker.gear
-            while gear.running():
-                _upload()
-
-        t = threading.Thread(target=_loop)
-        t.start()
-        return t
 
 
 class Subworker(mp.Target):
@@ -61,26 +58,27 @@ class Subworker(mp.Target):
 
         self.manager().worker.gear.connect(
             lambda method, *args, **kwargs: getattr(self, method)(*args, **kwargs)
-        ).join()
+        )
 
-    def run_env(self, start_step, end_step):
+    def run_env(self, num_steps):
         Q = self.manager().worker.queue
+        L = self.manager().worker.lock
         agent = self.manager().worker.agent
-        
-        for step in range(start_step, end_step, 1):
+            
+        for _ in range(num_steps):
             # reset
             if self._observation is None:
                 self._observation, _ = self._env.reset()
 
             # step
-            action = agent.act({
-                'observation': self._observation.unsqueeze(0)
-            }).squeeze()
+            with L.rlock():
+                action = agent.act({
+                    'observation': self._observation.unsqueeze(0)
+                }).squeeze()
             observation, reward, terminated, truncated, info = self._env.step(action)
-
+            
             # save
             Q.put({
-                'step': step,
                 'observation': self._observation,
                 'next_observation': observation,
                 'reward': reward,
@@ -89,4 +87,3 @@ class Subworker(mp.Target):
                 'info': info,
             })
             self._observation = None if terminated or truncated else observation
-            

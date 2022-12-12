@@ -76,7 +76,6 @@ def _launch(
         p.start()
     main.start()
     if start_event: start_event.set()
-
     
     # run
     main.run()
@@ -100,5 +99,6 @@ def __subprocess_entry__(index, target, manager, num_process, barrier, kwargs):
     else:
         target = Target(index, manager, num_process, barrier, target__= target, **kwargs)
 
-    with target:
-        target.run()
+    target.start()
+    target.run()
+    target.exit()

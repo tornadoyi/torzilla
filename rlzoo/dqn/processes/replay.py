@@ -7,6 +7,9 @@ class ReplayBuffer(Role):
         master = self.manager().replay_buffer
         self._buffer = ListReplayBuffer(master=master)
 
+    def capacity(self):
+        return self._buffer.capacity()
+
     def size(self):
         return len(self._buffer)
 

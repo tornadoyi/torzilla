@@ -1,43 +1,57 @@
 import tempfile
 import itertools
-from collections import OrderedDict as odcit
 import torzilla as tz
 from torzilla import multiprocessing as mp
 from rlzoo.dqn.processes import *
 
 A = tz.Argument
 
-_BATCH_SIZE = 1024
+_BATCH_SIZE = 32
 
-CONFIG = odcit(
-    env = odcit(
+CONFIG = dict(
+    env = dict(
         id = A(type=str, default='CartPole-v1')
     ),
 
-    worker = odcit(
-        num_process = A(type=int, default=10),
+    worker = dict(
+        num_process = A(type=int, default=5),
     ),
 
-    learner = odcit(
-        num_process = A(type=int, default=3),
+    learner = dict(
+        num_process = A(type=int, default=2),
+        distributed = dict(
+            backend = A(type=str, default='gloo')
+        ),
+        optimizer = dict(
+            optim = dict(
+                name = A(type=str, default='RMSprop'),
+                lr = A(type=float, default=1e-5),
+            ),
+            max_grad_norm = A(type=float, default=None),
+        ),
+        batch_size = A(type=int, default=_BATCH_SIZE,),
+        total_learn_steps = A(type=int, default=3,),
     ),
     
-    replay_buffer = odcit(
-        num_process = A(type=int, default=3),
-        capacity = A(type=int, default=_BATCH_SIZE*3),
+    replay = dict(
+        num_process = A(type=int, default=2),
+        capacity = A(type=int, default=_BATCH_SIZE),
     ),
 
     ps = dict(
         num_process = A(type=int, default=1),
     ),
 
-    agent = odcit(
+    agent = dict(
         double_q = A(action='store_true', default=False),
         gamma = A(type=float, default=0.99),
-        q_func_args = odcit(
+        eps = A(type=float, default=0.1),
+        eps_annealing = A(type=float, default=0),
+        qtarget_update_freq = A(type=int, default=100),
+        q_func_args = dict(
             hiddens = A(type=int, nargs='+', default=[256]),
             dueling = A(action='store_true', default=False),
-        )
+        ),
     )
 )
 
@@ -76,23 +90,31 @@ def prepare_roles(config):
         ))
 
     # learner
-    for i in range(config['learner']['num_process']):
+    leaner_file = tempfile.NamedTemporaryFile()
+    cfg = config['learner']
+    for i in range(cfg['num_process']):
         procs.append(dict(
             target = Learner,
             rpc = dict(
                 rank = get_rank(),
                 name = f'learner-{i}',
-                **rpc_args
+                **rpc_args,
             ),
+            distributed = dict(
+                rank = i,
+                init_method = f'file://{leaner_file.name}',
+                world_size = cfg['num_process'],
+                **cfg['distributed']
+            )
         ))
 
     # replay buffer
-    for i in range(config['replay_buffer']['num_process']):
+    for i in range(config['replay']['num_process']):
         procs.append(dict(
             target = ReplayBuffer,
             rpc = dict(
                 rank = get_rank(),
-                name = f'replay_buffer-{i}',
+                name = f'replay-{i}',
                 **rpc_args
             ),
         ))

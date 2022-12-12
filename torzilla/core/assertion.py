@@ -13,7 +13,6 @@ def assert_type(arg, *types, strict=False, null=False, name=None):
         name = name or trace_arg_names().get('arg', 'unknown')
         raise TypeError(f'Type of "{name}" is {type(arg)}, expect: {", ".join([tp.__name__ for tp in types])}')
 
-
 def assert_subclass(child, parent, name=None):
     if issubclass(child, parent): return
     name = name or trace_arg_names().get('child', 'unknown argument name')

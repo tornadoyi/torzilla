@@ -15,7 +15,7 @@ class ReducedOptimizer(object):
     def __getattr__(self, name):
         return getattr(self._optimizer, name)
 
-    def step(self, closure):
+    def step(self, closure=None):
         if self._method == 'mean':
             self._reduce_mean()
         else:

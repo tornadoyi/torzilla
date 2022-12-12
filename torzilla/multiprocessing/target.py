@@ -127,5 +127,6 @@ class Target(object):
             raise RuntimeError(
                 f'state transition error, {self._state.name} -> {state.name}'
             )
+        # print(f'[barrier-{state}] {self}')
         self._barrier.wait()
         self._state = state
