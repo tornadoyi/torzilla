@@ -58,7 +58,6 @@ class Learner(Role):
         cfg = config['learner']
         batch_size = batch_size or cfg['batch_size']
 
-        print('sampel')
         # sample
         datas = self.remote('replay').rpc_sync().sample(batch_size)
         inputs = {}

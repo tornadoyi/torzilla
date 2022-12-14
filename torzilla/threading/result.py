@@ -47,6 +47,9 @@ class MultiResult(Result):
         self._finishes = 0
         self._mutex = _th.Lock()
 
+    def __len__(self):
+        return len(self._cache)
+
     def _set(self, i, obj):
         if self._cache[i] is not None:
             raise IndexError(f'result at {i} has been set')

@@ -25,7 +25,7 @@ class RWLockProxy (MakeProxyType('RWLockProxy', (
 
 
 class ResultProxy (MakeProxyType('Result', (
-    'ready', 'successful', 'wait', 'get', '_set'
+    'ready', 'successful', 'wait', 'get', '_set', '__len__'
 ))):
     pass
 
@@ -42,15 +42,16 @@ class GearProxy (MakeProxyType('GearProxy', (
         super().__init__(*args, **kwargs)
         self._connections = self._callmethod('connections')
 
-    def apply_async(self, *args, **kwargs):
-        result = mp.current_target().manager().MultiResult(self._connections)
-        self._callmethod('_apply_async', (result, args, kwargs))
+    def apply_async(self, method, args=(), kwds={}, to=None):
+        slots = to or tuple(range(self._connections))
+        result = mp.current_target().manager().MultiResult(len(slots))
+        self._callmethod('_apply_async', (slots, (method,) + args, kwds, result))
         return result
 
-    def apply(self, *args, **kwargs):
-        return self.apply_async(*args, **kwargs).get()
+    def apply(self, method, args=(), kwds={}, to=None):
+        return self.apply_async(method, args, kwds, to).get()
 
-    def connect(self, listener, processes=None):
-        return threading.Gear._listen(self, listener, processes)
+    def connect(self, listener, slot=None, processes=None):
+        return threading.Gear._listen(self, listener, slot, processes)
 
 
