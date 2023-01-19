@@ -9,6 +9,9 @@ class Result(object):
         self._success = None
         self._value = None
 
+    def __len__(self):
+        return 1
+
     def ready(self):
         return self._event.is_set()
 

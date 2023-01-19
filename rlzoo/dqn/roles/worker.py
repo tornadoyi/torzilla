@@ -1,4 +1,5 @@
 import time
+import math
 from torch import futures
 from torzilla import multiprocessing as mp
 from torzilla import threading
@@ -15,15 +16,15 @@ class Worker(Role):
         ns.agent = Agent(env.observation_space, env.action_space, **cfg)
         ns.lock = self.manager().RWLock()
 
-    def run_env(self, num_steps):
+    def run_env(self, total_steps, pull_model=False):
         Q = self.manager().worker.queue
         gear = self.manager().worker.gear
+        num_steps = math.ceil(total_steps // gear.connections())
 
         # upload thread
         def _batch_upload():
             remain_data = num_steps * gear.connections()
             while remain_data > 0:
-                # print(f'remain_data: {remain_data}')
                 qsize = Q.qsize()
                 if qsize == 0:
                     time.sleep(0.5)
@@ -32,12 +33,16 @@ class Worker(Role):
                 self.remote('replay').rpc_sync().extend(datas)
                 remain_data -= len(datas)
 
+        # push model
+        if pull_model:
+            self.pull_model()
+
         # start thread
         t = threading.Thread(target=_batch_upload)
         t.start()
         
         # apply
-        gear.apply('run_env', num_steps)
+        gear.apply('run_env', args=(num_steps, ))
         t.join()
 
     def pull_model(self):

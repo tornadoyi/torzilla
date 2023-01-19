@@ -1,3 +1,4 @@
+import numbers
 from torzilla import threading
 from torzilla import multiprocessing as mp
 from .delegate import MakeProxyType, Delegate
@@ -43,8 +44,12 @@ class GearProxy (MakeProxyType('GearProxy', (
         self._connections = self._callmethod('connections')
 
     def apply_async(self, method, args=(), kwds={}, to=None):
-        slots = to or tuple(range(self._connections))
-        result = mp.current_target().manager().MultiResult(len(slots))
+        if isinstance(to, numbers.Number):
+            slots = (to, )
+            result = mp.current_target().manager().Result()
+        else:
+            slots = to or tuple(range(self._connections))
+            result = mp.current_target().manager().MultiResult(len(slots))
         self._callmethod('_apply_async', (slots, (method,) + args, kwds, result))
         return result
 

@@ -1,8 +1,9 @@
 import sys
 import traceback
+import numbers
 from multiprocessing.pool import ThreadPool
 import threading as _th
-from .result import MultiResult
+from .result import Result, MultiResult
 
 
 class Gear(object):
@@ -22,8 +23,12 @@ class Gear(object):
         self._result = None
     
     def apply_async(self, method, args=(), kwds={}, to=None):
-        slots = to or tuple(range(self._connections))
-        result = MultiResult(len(slots))
+        if isinstance(to, numbers.Number):
+            slots = (to, )
+            result = Result()
+        else:
+            slots = to or tuple(range(self._connections))
+            result = MultiResult(len(slots))
         self._apply_async(slots, (method,) + args, kwds, result)
         return result
 

@@ -2,7 +2,7 @@ import tempfile
 import itertools
 import torzilla as tz
 from torzilla import multiprocessing as mp
-from rlzoo.dqn.processes import *
+from rlzoo.dqn.roles import *
 
 A = tz.Argument
 
@@ -30,7 +30,8 @@ CONFIG = dict(
             max_grad_norm = A(type=float, default=None),
         ),
         batch_size = A(type=int, default=_BATCH_SIZE,),
-        total_learn_steps = A(type=int, default=3,),
+        num_learn = A(type=int, default=100,),
+        off_version = A(type=int, default=5,),
     ),
     
     replay = dict(
@@ -95,10 +96,10 @@ def prepare_roles(config):
     for i in range(cfg['num_process']):
         procs.append(dict(
             target = Learner,
-            rpc = dict(
+                rpc = dict(
                 rank = get_rank(),
                 name = f'learner-{i}',
-                **rpc_args,
+                **rpc_args
             ),
             distributed = dict(
                 rank = i,
