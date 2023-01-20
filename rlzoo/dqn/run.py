@@ -6,15 +6,25 @@ from rlzoo.dqn.roles import *
 
 A = tz.Argument
 
-_BATCH_SIZE = 32
+_BATCH_SIZE = 1024
 
 CONFIG = dict(
+
+    runner = dict(
+        num_learn = A(type=int, default=int(1e+9)),
+        num_learn_push_model = A(type=int, default=3),
+    ),
+
     env = dict(
         id = A(type=str, default='CartPole-v1')
     ),
 
     worker = dict(
-        num_process = A(type=int, default=5),
+        num_process = A(type=int, default=10),
+    ),
+
+    eval = dict(
+
     ),
 
     learner = dict(
@@ -30,8 +40,6 @@ CONFIG = dict(
             max_grad_norm = A(type=float, default=None),
         ),
         batch_size = A(type=int, default=_BATCH_SIZE,),
-        num_learn = A(type=int, default=100,),
-        off_version = A(type=int, default=5,),
     ),
     
     replay = dict(
@@ -43,12 +51,17 @@ CONFIG = dict(
         num_process = A(type=int, default=1),
     ),
 
+    tb = dict(
+        log_dir = A(type=str, default='runs/dqn'),
+        # flush_secs = A(type=float, default=3.0),
+    ),
+
     agent = dict(
         double_q = A(action='store_true', default=False),
         gamma = A(type=float, default=0.99),
         eps = A(type=float, default=0.1),
         eps_annealing = A(type=float, default=0),
-        qtarget_update_freq = A(type=int, default=100),
+        qtarget_update_freq = A(type=int, default=5),
         q_func_args = dict(
             hiddens = A(type=int, nargs='+', default=[256]),
             dueling = A(action='store_true', default=False),
@@ -90,6 +103,16 @@ def prepare_roles(config):
             target = Subworker,
         ))
 
+    # evaluator
+    procs.append(dict(
+        target = Evaluator,
+        rpc = dict(
+            rank = get_rank(),
+            name = f'eval-0',
+            **rpc_args
+        ),
+    ))
+
     # learner
     leaner_file = tempfile.NamedTemporaryFile()
     cfg = config['learner']
@@ -130,6 +153,16 @@ def prepare_roles(config):
                 **rpc_args
             ),
         ))
+
+    # tb
+    procs.append(dict(
+        target = Tensorboard,
+        rpc = dict(
+            rank = get_rank(),
+            name = 'tb-0',
+            **rpc_args
+        ),
+    ))
 
     world_size = get_rank()
     for arg in procs:

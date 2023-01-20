@@ -45,10 +45,17 @@ class Learner(Role):
         # cond
         self.cond = threading.Condition()
 
+        # push model
+        self._push_task = None
+
     def push_model(self):
         with self.cond:
-            state_dict, meta = self.agent.state_dict(), self.learn_info['meta']
-        return self._push_model(state_dict, meta)
+            if self._push_task is not None:
+                self._push_task.wait()
+            self._push_task = self.remote('ps').rpc_async().put(
+                value = self.agent.state_dict(),
+                meta = self.learn_info['meta']
+            )
 
     def pull_model(self):
         state_dict, meta = self.remote('ps').rpc_sync().get(meta=True)
@@ -56,7 +63,7 @@ class Learner(Role):
             self.agent.load_state_dict(state_dict)
             self.learn_info['meta'] = meta
 
-    def start_learn(self, target_version):
+    def start_learn(self, target_version=0):
         info = self.learn_info
         
         def valid_target_version():
@@ -76,6 +83,7 @@ class Learner(Role):
                 raise RuntimeError('repeated learn task')
             info['thread'] = threading.Thread(target=_loop)
             info['target_version'] = target_version
+            info['print_tb'] = False
             info['running'] = True
             info['thread'].start()
             self.cond.notify()
@@ -88,21 +96,22 @@ class Learner(Role):
             self.cond.notify()
         t.join()
 
-    def next_learn(self, target_version, wait_step, push_model=False):
+    def next_learn(self, target_version, push_model=False, print_tb=False):
         info = self.learn_info
         def _cond():
-            return info['meta']['version'] >= wait_step or not info['running']
+            return info['meta']['version'] >= target_version or not info['running']
 
         with self.cond:
             info['target_version'] = target_version
+            info['print_tb'] = print_tb
             self.cond.notify_all()
             self.cond.wait_for(_cond)
-            if push_model:
-                state_dict, meta = self.agent.state_dict(), self.learn_info['meta']
+
         if push_model:
-            self._push_model(state_dict, meta)
+            self.push_model()
 
     def _learn_once(self):
+        print_tb = self.learn_info['print_tb']
         config = self.kwargs()['config']
         cfg = config['learner']
         batch_size = cfg['batch_size']
@@ -123,19 +132,54 @@ class Learner(Role):
 
         # loss & optimize
         with self.cond:
+            # loss
             self.optimizer.zero_grad()
-            loss = self.agent.learn(inputs)
+            r = self.agent.learn(inputs)
+            loss = r['loss']
+
+            # optimize
             loss.backward()
             self.optimizer.step(_grad_norm)
+
+            # meta
             self.learn_info['meta'].update(dict(
                 version = self.agent.num_learn.numpy().tolist(),
                 timestamp = time.time()
             ))
+
+            # print tb
+            if print_tb: 
+                self._print_tb(r)
+
+            # finish
             self.cond.notify_all()
 
-    def _push_model(self, state_dict, meta, asyn=False):
-        r = self.remote('ps').rpc_async().put(
-            value = state_dict,
-            meta = meta
-        )
-        return r if asyn else r.wait()
+        # print tb
+
+    def _print_tb(self, learn_res):
+        f_print = getattr(self, '_fut_print_tb_', None)
+        if f_print is not None:
+            f_print.wait()
+
+        tb = self.remote('tb')
+
+        # grad norm
+        params = self.optimizer.optimizer.param_groups[0]['params']
+        device = params[0].grad.device
+        norm_grads = torch.stack([torch.norm(p.grad.detach(), 2.0).to(device) for p in params])
+        total_norm_grad = torch.norm(norm_grads, 2.0)
+
+        # version
+        version = self.learn_info['meta']['version']
+        
+        # pack ops
+        ops = []
+        for k, v in learn_res.items():
+            v = torch.mean(v)
+            ops.append(('add_scalar', (f'learner/{k}', v), {'global_step': version}))
+
+        ops.append(('add_histogram', ('learner/grad_norm', norm_grads), {'global_step': version}))
+        ops.append(('add_scalar', ('learner/total_grad_norm', total_norm_grad), {'global_step': version}))
+        
+        self._fut_print_tb_ = tb.rpc_async().add_all(ops)
+        

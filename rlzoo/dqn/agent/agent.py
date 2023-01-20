@@ -89,4 +89,7 @@ class Agent(nn.Module):
         td_target = rew + self.gamma * qt_mask_value
         loss = F.huber_loss(q_act_value, td_target.detach())
 
-        return loss
+        return {
+            'loss': loss,
+            'qt_value': qt_mask_value,
+        }
