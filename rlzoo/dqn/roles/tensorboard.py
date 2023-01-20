@@ -1,4 +1,3 @@
-import shutil
 import torch
 import numpy as np
 from torzilla.rl.tensorboard import SummaryWriter
@@ -20,11 +19,6 @@ class Tensorboard(__export_board()):
         # pick writer agrs
         cfg_tb = self.kwargs()['config']['tb']
         
-        # clean old log dir
-        log_dir = cfg_tb.get('log_dir', None)
-        if log_dir is not None:
-            shutil.rmtree(log_dir, ignore_errors=True)
-
         # writer
         self._writer = SummaryWriter(**cfg_tb)
 

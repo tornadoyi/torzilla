@@ -177,8 +177,8 @@ class Learner(Role):
         device = params[0].grad.device
         norm_grads = torch.stack([torch.norm(p.grad.detach(), 2.0).to(device) for p in params])
         total_norm_grad = torch.norm(norm_grads, 2.0)
-        ops.append(('add_histogram', ('learner/grad_norm_dist', norm_grads), {'global_step': version}))
-        ops.append(('add_scalar', ('learner/grad_norm', total_norm_grad), {'global_step': version}))
+        ops.append(('add_histogram', ('learner/grad_norm_dist', norm_grads, version)))
+        ops.append(('add_scalar', ('learner/grad_norm', total_norm_grad, version)))
 
         # inputs
         for k, v in inputs.items():

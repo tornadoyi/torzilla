@@ -5,13 +5,13 @@ ARGS=${@:1}
 
 
 start(){
-    rm -rf ./run.log ./tb.log
-	nohup python run.py > ./run.log 2>&1 &
+    rm -rf ./run.log ./tb.log ./runs
+	nohup python -u run.py > ./run.log 2>&1 &
     nohup tensorboard --host=0.0.0.0 --logdir=. > ./tb.log 2>&1 &
 }
 
 stop(){
-	ps -ef | grep "python run.py" | grep -v "grep" | awk '{print $2}' | xargs kill -9
+	ps -ef | grep "python -u run.py" | grep -v "grep" | awk '{print $2}' | xargs kill -9
     ps -ef | grep "tensorboard" | grep -v "grep" | awk '{print $2}' | xargs kill -9
 }
 

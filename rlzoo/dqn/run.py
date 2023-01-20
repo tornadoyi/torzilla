@@ -11,7 +11,7 @@ _BATCH_SIZE = 256
 CONFIG = dict(
 
     runner = dict(
-        num_learn = A(type=int, default=int(1e+9)),
+        num_learn = A(type=int, default=int(1e+6)),
         num_learn_push_model = A(type=int, default=3),
     ),
 
