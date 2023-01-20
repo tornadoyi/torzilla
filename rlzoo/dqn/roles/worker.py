@@ -57,9 +57,10 @@ class Worker(Role):
 
 class Subworker(mp.Target):
     def _run(self):
-        cfg = self.kwargs()['config']['env']
-        self._env = gym.make(cfg['id'])
-        self._observation = None
+        config = self.kwargs()['config']
+        self.total_learn = config['runner']['num_learn']
+        self.env = gym.make(config['env']['id'])
+        self.observation = None
 
         self.manager().worker.gear.connect(
             lambda method, *args, **kwargs: getattr(self, method)(*args, **kwargs)
@@ -72,15 +73,16 @@ class Subworker(mp.Target):
             
         for _ in range(num_steps):
             # reset
-            if self._observation is None:
-                self._observation, _ = self._env.reset()
+            if self.observation is None:
+                self.observation, _ = self.env.reset()
 
             # step
             with L.rlock():
+                eps = agent.calc_eps(self.total_learn)
                 action = agent.act({
-                    'observation': self._observation.unsqueeze(0)
-                }).squeeze()
-            observation, reward, terminated, truncated, info = self._env.step(action)
+                    'observation': self.observation.unsqueeze(0)
+                }, eps).squeeze()
+            observation, reward, terminated, truncated, info = self.env.step(action)
             
             # save
             Q.put({
@@ -90,5 +92,6 @@ class Subworker(mp.Target):
                 'action': action,
                 'done': terminated or truncated,
                 'info': info,
+                'eps': eps,
             })
-            self._observation = None if terminated or truncated else observation
+            self.observation = None if terminated or truncated else observation

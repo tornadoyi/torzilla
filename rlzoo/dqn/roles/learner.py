@@ -149,37 +149,40 @@ class Learner(Role):
 
             # print tb
             if print_tb: 
-                self._print_tb(r)
+                self._print_tb(r, inputs)
 
             # finish
             self.cond.notify_all()
 
         # print tb
 
-    def _print_tb(self, learn_res):
+    def _print_tb(self, learn_res, inputs):
         f_print = getattr(self, '_fut_print_tb_', None)
         if f_print is not None:
             f_print.wait()
 
         tb = self.remote('tb')
 
-        # grad norm
-        params = self.optimizer.optimizer.param_groups[0]['params']
-        device = params[0].grad.device
-        norm_grads = torch.stack([torch.norm(p.grad.detach(), 2.0).to(device) for p in params])
-        total_norm_grad = torch.norm(norm_grads, 2.0)
-
         # version
         version = self.learn_info['meta']['version']
         
-        # pack ops
+        # learn result
         ops = []
         for k, v in learn_res.items():
             v = torch.mean(v)
             ops.append(('add_scalar', (f'learner/{k}', v), {'global_step': version}))
-
+        
+        # grad
+        params = self.optimizer.optimizer.param_groups[0]['params']
+        device = params[0].grad.device
+        norm_grads = torch.stack([torch.norm(p.grad.detach(), 2.0).to(device) for p in params])
+        total_norm_grad = torch.norm(norm_grads, 2.0)
         ops.append(('add_histogram', ('learner/grad_norm', norm_grads), {'global_step': version}))
         ops.append(('add_scalar', ('learner/total_grad_norm', total_norm_grad), {'global_step': version}))
+
+        # inputs
+        for k, v in inputs.items():
+            ops.append(('add_scalar', (f'input/{k}', torch.mean(v)), {'global_step': version}))
         
         self._fut_print_tb_ = tb.rpc_async().add_all(ops)
         

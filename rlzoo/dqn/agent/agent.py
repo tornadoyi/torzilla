@@ -10,7 +10,7 @@ class Agent(nn.Module):
         ac_space,
         gamma=0.9,
         double_q=False,
-        eps=0.1,
+        eps=0.0,
         eps_annealing=0,
         qtarget_update_freq=1,
         q_func_args={},
@@ -21,21 +21,26 @@ class Agent(nn.Module):
         self.num_action = ac_space.n
         self.q = QFunction(ob_space, ac_space, **q_func_args)
         self.qt = QFunction(ob_space, ac_space, **q_func_args)
+        self.eps = eps
         self.eps_annealing = eps_annealing
         self.qtarget_update_freq = qtarget_update_freq
 
         self.num_learn = nn.parameter.Parameter(torch.tensor(0), requires_grad=False)
-        self.eps = nn.parameter.Parameter(torch.tensor(eps), requires_grad=False)
+        self.num_qt_update = nn.parameter.Parameter(torch.tensor(0), requires_grad=False)
 
         # set target network with no grad
         for p in self.qt.parameters():
             p.requires_grad = False
 
-    def act(self, inputs, eps_greedy=True):
+    def calc_eps(self, total_step):
+        w = 1 - self.num_learn / total_step * self.eps_annealing
+        return torch.clip(self.eps * w, 0, 1)
+
+    def act(self, inputs, eps=0):
         with torch.no_grad():
-            return self._act(inputs, eps_greedy)
+            return self._act(inputs, eps)
             
-    def _act(self, inputs, eps_greedy):
+    def _act(self, inputs, eps):
         obs = inputs['observation']
 
         # deterministic actions
@@ -45,12 +50,7 @@ class Agent(nn.Module):
         # epsilon greedy
         N = q_values.shape[0]
         rand_actions = torch.randint(low=0, high=self.num_action, size=(N, ))
-        if eps_greedy:
-            need_rand = torch.rand_like(rand_actions.to(torch.float32)) < self.eps
-            self.eps.data = torch.clip(self.eps - self.eps_annealing, 0, 1)
-        else:
-            need_rand = torch.zeros_like(rand_actions).to(torch.bool)
-
+        need_rand = torch.rand_like(rand_actions.to(torch.float32)) < eps
         stochastic_actions = torch.where(need_rand, rand_actions, deterministic_actions)
 
         return stochastic_actions
@@ -67,6 +67,7 @@ class Agent(nn.Module):
         self.num_learn += 1
         if self.num_learn % self.qtarget_update_freq == 0:
             self.qt.load_state_dict(self.q.state_dict())
+            self.num_qt_update += 1
 
         # q eval
         q_values = self.q(obs)
@@ -92,4 +93,5 @@ class Agent(nn.Module):
         return {
             'loss': loss,
             'qt_value': qt_mask_value,
+            'num_qt_update': self.num_qt_update,
         }
