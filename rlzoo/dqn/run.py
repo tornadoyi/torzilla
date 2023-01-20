@@ -6,12 +6,12 @@ from rlzoo.dqn.roles import *
 
 A = tz.Argument
 
-_BATCH_SIZE = 32
+_BATCH_SIZE = 256
 
 CONFIG = dict(
 
     runner = dict(
-        num_learn = A(type=int, default=int(1000)),
+        num_learn = A(type=int, default=int(3e5)),
         num_learn_push_model = A(type=int, default=3),
     ),
 
@@ -59,7 +59,7 @@ CONFIG = dict(
         gamma = A(type=float, default=0.99),
         eps = A(type=float, default=0.3),
         eps_annealing = A(type=float, default=2.0),
-        qtarget_update_freq = A(type=int, default=50),
+        qtarget_update_freq = A(type=int, default=100),
         q_func_args = dict(
             hiddens = A(type=int, nargs='+', default=[256]),
             dueling = A(action='store_true', default=False),

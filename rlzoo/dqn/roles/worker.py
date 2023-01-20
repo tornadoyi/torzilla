@@ -1,6 +1,6 @@
 import time
 import math
-from torch import futures
+import torch
 from torzilla import multiprocessing as mp
 from torzilla import threading
 from rlzoo.zoo import gym
@@ -51,7 +51,6 @@ class Worker(Role):
         with self.manager().worker.lock.wlock():
             ns.agent.load_state_dict(state_dict)
             ns.meta = meta
-            print(ns.meta)
         
     def close(self):
         self.manager().worker.gear.close()
@@ -96,6 +95,6 @@ class Subworker(mp.Target):
                 'done': terminated or truncated,
                 'info': info,
                 'eps': eps,
-                'sample_version': version,
+                'sample_version': torch.tensor(version),
             })
             self.observation = None if terminated or truncated else observation
