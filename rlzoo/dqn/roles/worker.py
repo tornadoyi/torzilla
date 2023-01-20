@@ -46,11 +46,13 @@ class Worker(Role):
         t.join()
 
     def pull_model(self):
+        ns = self.manager().worker
         state_dict, meta = self.remote('ps').rpc_sync().get(meta=True)
-        agent = self.manager().worker.agent
         with self.manager().worker.lock.wlock():
-            agent.load_state_dict(state_dict)
-
+            ns.agent.load_state_dict(state_dict)
+            ns.meta = meta
+            print(ns.meta)
+        
     def close(self):
         self.manager().worker.gear.close()
 
@@ -69,7 +71,8 @@ class Subworker(mp.Target):
     def run_env(self, num_steps):
         Q = self.manager().worker.queue
         L = self.manager().worker.lock
-        agent = self.manager().worker.agent
+        ns = self.manager().worker
+        agent, version = ns.agent, ns.meta['version']
             
         for _ in range(num_steps):
             # reset
@@ -93,5 +96,6 @@ class Subworker(mp.Target):
                 'done': terminated or truncated,
                 'info': info,
                 'eps': eps,
+                'sample_version': version,
             })
             self.observation = None if terminated or truncated else observation

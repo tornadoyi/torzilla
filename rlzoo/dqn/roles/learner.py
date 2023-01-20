@@ -51,9 +51,7 @@ class Learner(Role):
 
     def push_model(self):
         with self.cond:
-            if self._push_task is not None:
-                self._push_task.wait()
-            self._push_task = self.remote('ps').rpc_async().put(
+            self.remote('ps').rpc_sync().put(
                 value = self.agent.state_dict(),
                 meta = self.learn_info['meta']
             )
@@ -155,7 +153,6 @@ class Learner(Role):
             # finish
             self.cond.notify_all()
 
-        # print tb
 
     def _print_tb(self, learn_res, inputs):
         f_print = getattr(self, '_fut_print_tb_', None)

@@ -55,17 +55,18 @@ class TestTarget(mp.Target):
         self.manager().Q_send.put(self.result)
 
     def test_ps_put_get(self):
-        values, metas = self.init_parameter_buffer()
-        datas = futures.wait_all([
-            self.ps().rpc_async().get(key=k, value=True, meta=True)
-            for k in metas.keys()
-        ])
-        ps_values, ps_metas = {}, {}
-        for i, (value, meta) in enumerate(datas):
-            k = list(values.keys())[i]
-            ps_values[k], ps_metas[k] = value, meta
+        for i in range(10):
+            values, metas = self.init_parameter_buffer()
+            datas = futures.wait_all([
+                self.ps().rpc_async().get(key=k, value=True, meta=True)
+                for k in metas.keys()
+            ])
+            ps_values, ps_metas = {}, {}
+            for i, (value, meta) in enumerate(datas):
+                k = list(values.keys())[i]
+                ps_values[k], ps_metas[k] = value, meta
 
-        self.check_model(ps_values, values, ps_metas, metas, 'put and get')
+            self.check_model(ps_values, values, ps_metas, metas, 'put and get')
 
     def test_ps_clear(self):
         self.init_parameter_buffer()

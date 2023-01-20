@@ -60,6 +60,7 @@ class DictParameterBuffer(BaseParameterBuffer):
                     item.value = value
                 if meta is not NotExist:
                     item.meta = meta
+                self._store[key] = item
 
     def remove(self, key, ignore_errors=False):
         with self._lock.wlock():

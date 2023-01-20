@@ -14,12 +14,11 @@ class Evaluator(Role):
     def evaluate(self, max_step=-1):
         # pull model
         meta = self.pull_model()
-        self.last_version = meta['version']
 
         # reset env
         obs, _ = self.env.reset()
         terminated = False
-        stats = {'reward': 0, 'steps': 0}
+        stats = {'reward': 0, 'steps': 0, 'version': meta['version']}
         while not terminated:
             # step
             action = self.agent.act({
