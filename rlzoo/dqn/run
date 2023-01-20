@@ -1,0 +1,31 @@
+#!/bin/bash
+
+OP=$1
+ARGS=${@:1}
+
+
+start(){
+    rm -rf ./run.log ./tb.log
+	nohup python run.py > ./run.log 2>&1 &
+    nohup tensorboard --host=0.0.0.0 --logdir=. > ./tb.log 2>&1 &
+}
+
+stop(){
+	ps -ef | grep jason | grep "python run.py" | grep -v "grep" | awk '{print $2}' | xargs kill -9
+    ps -ef | grep jason | grep "tensorboard run.py" | grep -v "grep" | awk '{print $2}' | xargs kill -9
+}
+
+case "${OP}" in
+	start)
+		start
+	;;
+	
+	stop)
+		stop
+	;;
+
+	*)
+		echo "Usage {start, stop}"
+	;;
+
+esac
