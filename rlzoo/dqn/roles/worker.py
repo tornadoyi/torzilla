@@ -86,7 +86,7 @@ class Subworker(mp.Target):
             
             # save
             Q.put({
-                'observation': self._observation,
+                'observation': self.observation,
                 'next_observation': observation,
                 'reward': reward,
                 'action': action,

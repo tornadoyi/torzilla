@@ -8,5 +8,6 @@ build/
 *.DS_Store
 .vscode
 .ipynb_checkpoints
+*.log
 nohup.out
 runs

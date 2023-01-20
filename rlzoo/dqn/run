@@ -11,8 +11,8 @@ start(){
 }
 
 stop(){
-	ps -ef | grep jason | grep "python run.py" | grep -v "grep" | awk '{print $2}' | xargs kill -9
-    ps -ef | grep jason | grep "tensorboard run.py" | grep -v "grep" | awk '{print $2}' | xargs kill -9
+	ps -ef | grep "python run.py" | grep -v "grep" | awk '{print $2}' | xargs kill -9
+    ps -ef | grep "tensorboard" | grep -v "grep" | awk '{print $2}' | xargs kill -9
 }
 
 case "${OP}" in
