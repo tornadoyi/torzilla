@@ -6,7 +6,7 @@ from rlzoo.dqn.roles import *
 
 A = tz.Argument
 
-_BATCH_SIZE = 1024
+_BATCH_SIZE = 256
 
 CONFIG = dict(
 
@@ -59,9 +59,9 @@ CONFIG = dict(
     agent = dict(
         double_q = A(action='store_true', default=False),
         gamma = A(type=float, default=0.99),
-        eps = A(type=float, default=0.1),
-        eps_annealing = A(type=float, default=0),
-        qtarget_update_freq = A(type=int, default=5),
+        eps = A(type=float, default=0.3),
+        eps_annealing = A(type=float, default=1.0),
+        qtarget_update_freq = A(type=int, default=50),
         q_func_args = dict(
             hiddens = A(type=int, nargs='+', default=[256]),
             dueling = A(action='store_true', default=False),

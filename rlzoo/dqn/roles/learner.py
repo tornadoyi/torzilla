@@ -7,6 +7,7 @@ from torzilla.distributed.optim import ReducedOptimizer
 from rlzoo.zoo import gym
 from rlzoo.zoo.role import Role
 from rlzoo.dqn.agent import Agent
+from rlzoo.dqn.roles.tensorboard import Tensorboard
 
 
 class Learner(Role):
@@ -169,20 +170,19 @@ class Learner(Role):
         # learn result
         ops = []
         for k, v in learn_res.items():
-            v = torch.mean(v)
-            ops.append(('add_scalar', (f'learner/{k}', v), {'global_step': version}))
+            ops += Tensorboard.make_numeric_ops(f'learner/{k}', v, version)
         
         # grad
         params = self.optimizer.optimizer.param_groups[0]['params']
         device = params[0].grad.device
         norm_grads = torch.stack([torch.norm(p.grad.detach(), 2.0).to(device) for p in params])
         total_norm_grad = torch.norm(norm_grads, 2.0)
-        ops.append(('add_histogram', ('learner/grad_norm', norm_grads), {'global_step': version}))
-        ops.append(('add_scalar', ('learner/total_grad_norm', total_norm_grad), {'global_step': version}))
+        ops.append(('add_histogram', ('learner/grad_norm_dist', norm_grads), {'global_step': version}))
+        ops.append(('add_scalar', ('learner/grad_norm', total_norm_grad), {'global_step': version}))
 
         # inputs
         for k, v in inputs.items():
-            ops.append(('add_scalar', (f'input/{k}', torch.mean(v)), {'global_step': version}))
+            ops += Tensorboard.make_numeric_ops(f'input/{k}', v, version)
         
-        self._fut_print_tb_ = tb.rpc_async().add_all(ops)
+        self._fut_print_tb_ = tb.rpc_async().add_ops(ops)
         
