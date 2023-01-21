@@ -6,24 +6,30 @@ from rlzoo.dqn.roles import *
 
 A = tz.Argument
 
-_BATCH_SIZE = 256
+_BATCH_SIZE = 128
 
 CONFIG = dict(
 
     runner = dict(
-        num_learn = A(type=int, default=int(3e5)),
+        num_learn = A(type=int, default=int(1e4)),
         num_learn_push_model = A(type=int, default=3),
+        num_learn_eval = A(type=int, default=10),
+        num_learn_sample = A(type=int, default=1),
+        num_sample = A(type=int, default=_BATCH_SIZE // 5),
     ),
 
     env = dict(
-        id = A(type=str, default='CartPole-v1')
+        id = A(type=str, default='CartPole-v1'),
+        enable_id_wrapper = A(action='store_true', default=True),
     ),
 
     worker = dict(
-        num_process = A(type=int, default=10),
+        num_process = A(type=int, default=5),
     ),
 
-    eval = dict(),
+    eval = dict(
+        num_process = A(type=int, default=1),
+    ),
 
     learner = dict(
         num_process = A(type=int, default=2),
@@ -33,7 +39,7 @@ CONFIG = dict(
         optimizer = dict(
             optim = dict(
                 name = A(type=str, default='RMSprop'),
-                lr = A(type=float, default=1e-5),
+                lr = A(type=float, default=1e-4),
             ),
             max_grad_norm = A(type=float, default=None),
         ),
@@ -42,7 +48,7 @@ CONFIG = dict(
     
     replay = dict(
         num_process = A(type=int, default=2),
-        capacity = A(type=int, default=_BATCH_SIZE),
+        capacity = A(type=int, default=_BATCH_SIZE * 10),
     ),
 
     ps = dict(
@@ -58,7 +64,7 @@ CONFIG = dict(
         double_q = A(action='store_true', default=False),
         gamma = A(type=float, default=0.99),
         eps = A(type=float, default=0.3),
-        eps_annealing = A(type=float, default=2.0),
+        eps_annealing = A(type=float, default=5.0),
         qtarget_update_freq = A(type=int, default=100),
         q_func_args = dict(
             hiddens = A(type=int, nargs='+', default=[256]),
@@ -110,6 +116,10 @@ def prepare_roles(config):
             **rpc_args
         ),
     ))
+    for _ in range(config['eval']['num_process']):
+        procs.append(dict(
+            target = SubEvaluator,
+        ))
 
     # learner
     leaner_file = tempfile.NamedTemporaryFile()

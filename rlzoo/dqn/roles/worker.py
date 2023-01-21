@@ -95,6 +95,6 @@ class Subworker(mp.Target):
                 'done': terminated or truncated,
                 'info': info,
                 'eps': eps,
-                'sample_version': torch.tensor(version),
+                'version': torch.tensor(version),
             })
             self.observation = None if terminated or truncated else observation

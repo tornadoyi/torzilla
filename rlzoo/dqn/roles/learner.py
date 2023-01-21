@@ -181,5 +181,7 @@ class Learner(Role):
         for k, v in inputs.items():
             ops += Tensorboard.make_numeric_ops(f'input/{k}', v, version)
         
+        ops += Tensorboard.make_numeric_ops(f'input/off_version', version - inputs['version'], version)
+
         self._fut_print_tb_ = tb.rpc_async().add_ops(ops)
         

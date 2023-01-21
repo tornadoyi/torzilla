@@ -11,8 +11,10 @@ class Runner(Role):
         config = self.kwargs()['config']
         self.num_learn = config['runner']['num_learn']
         self.num_learn_push_model = config['runner']['num_learn_push_model']
+        self.num_learn_eval = config['runner']['num_learn_eval']
+        self.num_learn_sample = config['runner']['num_learn_sample']
+        self.num_sample = config['runner']['num_sample']
         self.replay_cap = self.remote('replay').rpc_sync().capacity()
-        self.num_sample_per_worker = math.ceil(self.replay_cap / len(self.remotes('worker')))
 
         # sync model
         self.remote('learner').rpc_sync().push_model()
@@ -22,8 +24,9 @@ class Runner(Role):
         ])
 
         # init replay buffer
+        num_sample_per_worker = math.ceil(self.replay_cap / len(self.remotes('worker')))
         futures.wait_all([
-            rref.rpc_async().run_env(self.num_sample_per_worker)
+            rref.rpc_async().run_env(num_sample_per_worker)
             for rref in self.remotes('worker')
         ])
 
@@ -39,10 +42,12 @@ class Runner(Role):
             print(f'current version: {version}')
             
             # prepare data
-            self._run_env(version)
+            if version % self.num_learn_sample == 0:
+                self._run_env(version)
 
             # eval
-            self._eval(version)
+            if version % self.num_learn_eval == 0:
+                self._eval(version)
 
             # learn
             self._learn(version).wait()
@@ -73,33 +78,24 @@ class Runner(Role):
         def _finish(start_time, version, *args):
             cost = time.time() - start_time
             self.remote('tb').rpc_async().add_scalar('runner/run_env_cost', cost, global_step=version)
-        
+
+        num_sample_per_worker = math.ceil(self.num_sample / len(self.remotes('worker')))
+
         f_run_env = getattr(self, '_f_run_env_', None)
         if f_run_env is not None and not f_run_env.done():
             return
         f_run_env = self._f_run_env_ = futures.collect_all([
-            rref.rpc_async().run_env(self.num_sample_per_worker, pull_model=True)
+            rref.rpc_async().run_env(num_sample_per_worker, pull_model=True)
             for rref in self.remotes('worker')
         ])
         f_run_env.add_done_callback(partial(_finish, time.time(), version))
         return f_run_env
 
     def _eval(self, version):
-        def _finish(start_time, version, fut):
+        def _finish(start_time, version, *args):
             cost = time.time() - start_time
             self.remote('tb').rpc_async().add_scalar('runner/eval_cost', cost, global_step=version)
-            stats = [f.wait() for f in fut.wait()]
             
-            # mean
-            avg_stat = {k: 0 for k in stats[0].keys()}
-            for s in stats:
-                for k, v in s.items():
-                    avg_stat[k] += v / len(stats)
-
-            # tb
-            for k, v in avg_stat.items():
-                self.remote('tb').rpc_async().add_scalar(f'eval/{k}', v, global_step=version)
-
         f_eval = getattr(self, '_f_eval_', None)
         if f_eval is not None and not f_eval.done():
             return

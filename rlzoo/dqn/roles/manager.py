@@ -14,6 +14,11 @@ class Manager(mp.Manager):
         ns.gear = self.Gear(cfg['num_process'])
         ns.queue = self.Queue()
 
+        # evaluator
+        cfg = config['eval']
+        ns = self.eval = self.Namespace()
+        ns.gear = self.Gear(cfg['num_process'])
+
         # learner
         cfg = config['learner']
         ns = self.learner = self.Namespace()

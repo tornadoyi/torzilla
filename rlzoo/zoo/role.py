@@ -15,6 +15,7 @@ class Role(mp.Target):
             ])
             if len(rrefs) == 0:
                 raise AttributeError(f'rpc worker with prefix "{name}" is not exist')
+            rrefs = rpc.PyRRefs(rrefs)
             setattr(self, param_name, rrefs)
         return rrefs
 
