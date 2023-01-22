@@ -28,49 +28,54 @@ class PyRRefs(object):
         return iter(self._rrefs)
 
     def rpc_sync(self, *args, **kwargs):
-        return RRefsProxy([
-            rref.rpc_sync(*args, **kwargs) 
-            for rref in self._rrefs]
+        return RRefsProxy(
+            False, 
+            [
+                rref.rpc_async(*args, **kwargs) 
+                for rref in self._rrefs
+            ]
         )
 
     def rpc_async(self, *args, **kwargs):
-        return RRefsProxy([
-            rref.rpc_async(*args, **kwargs) 
-            for rref in self._rrefs]
+        return RRefsProxy(
+            True, 
+            [
+                rref.rpc_async(*args, **kwargs) 
+                for rref in self._rrefs
+            ]
         )
 
 
 class RRefsProxy(object):
-    def __init__(self, proxies) -> None:
+    def __init__(self, is_async, proxies) -> None:
+        self._is_async = is_async
         self._proxies = proxies
 
     @property
     def rpc_timeout(self):
         return self._proxies[0].rpc_timeout
 
-    @property
-    def rpc_api(self):
-        return self._proxies[0].rpc_api
-
     def __getattr__(self, func_name):
         invokers = [
             getattr(proxy, func_name)
             for proxy in self._proxies
         ]
-        return partial(_invoke_rpc, self.rpc_api, invokers)
+        return partial(_invoke_rpc, self._is_async, invokers)
 
 
-def _invoke_rpc(rpc_api, invokers, *args, **kwargs):
+def _invoke_rpc(is_async, invokers, *args, **kwargs):
     def _async_done(fut, fut_collect):
         try:
-            fut.set_result([f.value() for f in fut_collect.value()])
+            fut.set_result([f.wait() for f in fut_collect.wait()])
         except Exception as e:
+            print(e)
             fut.set_exception(e)
 
-    rets = [invoker(*args, **kwargs) for invoker in invokers]
-    if rpc_api == _rpc.rpc_async:
-        fut = futures.Future()
-        futures.collect_all(rets).add_done_callback(partial(_async_done, fut))
-        return fut
-    else:
-        return rets
+    futs = [invoker(*args, **kwargs) for invoker in invokers]
+    for fut in futs:
+        if not isinstance(fut, futures.Future):
+            raise RuntimeError(f'return of invoke_prc should be {futures.Future}, got {type(fut)}')
+
+    fut = futures.Future()
+    futures.collect_all(futs).add_done_callback(partial(_async_done, fut))
+    return fut if is_async else fut.wait()

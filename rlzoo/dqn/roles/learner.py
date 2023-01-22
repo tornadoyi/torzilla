@@ -1,8 +1,7 @@
-import copy
 import time
 import torch
 import torch.distributed as dist
-from torzilla import threading
+from torzilla import threading, rpc
 from torzilla.distributed.optim import ReducedOptimizer
 from rlzoo.zoo import gym
 from rlzoo.zoo.role import Role
@@ -24,96 +23,42 @@ class Learner(Role):
 
         # optimizer
         cfg = config['learner']['optimizer']
-        optim_args = copy.copy(cfg['optim'])
-        name = optim_args['name']
-        del optim_args['name']
-        optim_cls = getattr(torch.optim, name)
-        self.optimizer = ReducedOptimizer(optim_cls(
+        optim_cls = getattr(torch.optim, cfg['optim']['name'])
+        optimizer = optim_cls(
             [p for p in self.agent.parameters() if p.requires_grad], 
-            **optim_args
-        ))
+            **cfg['optim']['args']
+        )
+        self.optimizer = ReducedOptimizer(optimizer)
 
-        # learn info
-        self.learn_info = {
-            'thread': None,
-            'target_version': 0, 
-            'running': False,
-            'meta': {
-                'version': 0
-            }
-        }
+        # scheduler
+        sched_cls = getattr(torch.optim.lr_scheduler, cfg['scheduler']['name'])
+        self.scheduler = sched_cls(optimizer, **cfg['scheduler']['args'])
 
-        # cond
-        self.cond = threading.Condition()
+        # meta
+        self.meta = {'version': 0}
 
-        # push model
-        self._push_task = None
+        # lock
+        self.lock = threading.RLock()
 
     def push_model(self):
-        with self.cond:
+        with self.lock:
             self.remote('ps').rpc_sync().put(
                 value = self.agent.state_dict(),
-                meta = self.learn_info['meta']
+                meta = self.meta
             )
 
     def pull_model(self):
         state_dict, meta = self.remote('ps').rpc_sync().get(meta=True)
-        with self.cond:
+        with self.lock:
             self.agent.load_state_dict(state_dict)
-            self.learn_info['meta'] = meta
+            self.meta = meta
 
-    def start_learn(self, target_version=0):
-        info = self.learn_info
-        
-        def valid_target_version():
-            return not info['running'] or info['meta']['version'] < info['target_version']
-
-        def _loop():
-            while info['running']:
-                with self.cond:
-                    self.cond.wait_for(valid_target_version)
-                    if not info['running']:
-                        info['thread'] = None
-                        break
-                self._learn_once()
-
-        with self.cond:
-            if info['thread']:
-                raise RuntimeError('repeated learn task')
-            info['thread'] = threading.Thread(target=_loop)
-            info['target_version'] = target_version
-            info['print_tb'] = False
-            info['running'] = True
-            info['thread'].start()
-            self.cond.notify()
-
-    def stop_learn(self):
-        with self.cond:
-            t = self.learn_info['thread']
-            if t is None: return
-            self.learn_info['running'] = False
-            self.cond.notify()
-        t.join()
-
-    def next_learn(self, target_version, push_model=False, print_tb=False):
-        info = self.learn_info
-        def _cond():
-            return info['meta']['version'] >= target_version or not info['running']
-
-        with self.cond:
-            info['target_version'] = target_version
-            info['print_tb'] = print_tb
-            self.cond.notify_all()
-            self.cond.wait_for(_cond)
-
-        if push_model:
-            self.push_model()
-
-    def _learn_once(self):
-        print_tb = self.learn_info['print_tb']
+    def learn(self, master_name, print_tb, push_model):
         config = self.kwargs()['config']
         cfg = config['learner']
         batch_size = cfg['batch_size']
+        is_master = rpc.get_worker_info().name == master_name
+        print_tb, push_model = is_master and print_tb, is_master and push_model
 
         # sample
         datas = self.remote('replay').rpc_sync().sample(batch_size)
@@ -130,58 +75,59 @@ class Learner(Role):
             torch.nn.utils.clip_grad_norm_(params, max_grad_norm)
 
         # loss & optimize
-        with self.cond:
+        with self.lock:
             # loss
             self.optimizer.zero_grad()
-            r = self.agent.learn(inputs)
-            loss = r['loss']
+            learn_info = self.agent.learn(inputs)
+            loss = learn_info['loss']
 
             # optimize
             loss.backward()
             self.optimizer.step(_grad_norm)
+            self.scheduler.step()
 
             # meta
-            self.learn_info['meta'].update(dict(
+            self.meta.update(dict(
                 version = self.agent.num_learn.numpy().tolist(),
                 timestamp = time.time()
             ))
 
             # print tb
             if print_tb: 
-                self._print_tb(r, inputs)
+                self._print_tb(learn_info, inputs)
 
-            # finish
-            self.cond.notify_all()
+            if push_model:
+                self.push_model()
 
 
-    def _print_tb(self, learn_res, inputs):
-        f_print = getattr(self, '_fut_print_tb_', None)
+    def _print_tb(self, learn_info, inputs):
+        fut_name = '__fut_print_tb__'
+        f_print = getattr(self, fut_name, None)
         if f_print is not None:
             f_print.wait()
 
-        tb = self.remote('tb')
-
         # version
-        version = self.learn_info['meta']['version']
+        version = self.meta['version']
         
         # learn result
-        ops = []
-        for k, v in learn_res.items():
-            ops += Tensorboard.make_numeric_ops(f'learner/{k}', v, version)
+        idcts = []
+        for k, v in learn_info.items():
+            idcts += Tensorboard.guess(f'learner/{k}', v, version)
         
         # grad
         params = self.optimizer.optimizer.param_groups[0]['params']
         device = params[0].grad.device
         norm_grads = torch.stack([torch.norm(p.grad.detach(), 2.0).to(device) for p in params])
         total_norm_grad = torch.norm(norm_grads, 2.0)
-        ops.append(('add_histogram', ('learner/grad_norm_dist', norm_grads, version)))
-        ops.append(('add_scalar', ('learner/grad_norm', total_norm_grad, version)))
+        idcts.append(('add_histogram', ('learner/grad_norm_dist', norm_grads, version)))
+        idcts.append(('add_scalar', ('learner/grad_norm', total_norm_grad, version)))
 
         # inputs
         for k, v in inputs.items():
-            ops += Tensorboard.make_numeric_ops(f'input/{k}', v, version)
+            idcts += Tensorboard.guess(f'input/{k}', v, version)
         
-        ops += Tensorboard.make_numeric_ops(f'input/off_version', version - inputs['version'], version)
+        idcts += Tensorboard.guess(f'input/off_version', version - inputs['version'], version)
 
-        self._fut_print_tb_ = tb.rpc_async().add_ops(ops)
+        f_print = self.remote('tb').rpc_async().adds(idcts)
+        setattr(self, fut_name, f_print)
         

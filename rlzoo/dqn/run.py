@@ -7,15 +7,16 @@ from rlzoo.dqn.roles import *
 A = tz.Argument
 
 _BATCH_SIZE = 128
+_TOTAL_LEARN = int(1e4)
 
 CONFIG = dict(
 
     runner = dict(
-        num_learn = A(type=int, default=int(1e4)),
-        num_learn_push_model = A(type=int, default=3),
-        num_learn_eval = A(type=int, default=10),
-        num_learn_sample = A(type=int, default=1),
-        num_sample = A(type=int, default=_BATCH_SIZE // 5),
+        num_learn = A(type=int, default=_TOTAL_LEARN),
+        freq_push_model = A(type=int, default=1),
+        freq_eval = A(type=int, default=10),
+        freq_sample = A(type=int, default=1),
+        num_sampled_data = A(type=int, default=_BATCH_SIZE // 3),
     ),
 
     env = dict(
@@ -39,7 +40,17 @@ CONFIG = dict(
         optimizer = dict(
             optim = dict(
                 name = A(type=str, default='RMSprop'),
-                lr = A(type=float, default=1e-4),
+                args = dict(
+                    lr = A(type=float, default=1e-3),
+                )
+            ),
+            scheduler = dict(
+                name = A(type=str, default='LinearLR'),
+                args = dict(
+                    start_factor = A(type=float, default=1.0),
+                    end_factor = A(type=float, default=0.1),
+                    total_iters = A(type=int, default=_TOTAL_LEARN // 3),
+                )
             ),
             max_grad_norm = A(type=float, default=None),
         ),
@@ -47,7 +58,7 @@ CONFIG = dict(
     ),
     
     replay = dict(
-        num_process = A(type=int, default=2),
+        num_process = A(type=int, default=1),
         capacity = A(type=int, default=_BATCH_SIZE * 10),
     ),
 
@@ -56,8 +67,11 @@ CONFIG = dict(
     ),
 
     tb = dict(
-        log_dir = A(type=str, default='runs/dqn'),
-        # flush_secs = A(type=float, default=3.0),
+        num_process = A(type=int, default=1),
+        args = dict(
+            log_dir = A(type=str, default='runs/dqn'),
+            # flush_secs = A(type=float, default=3.0),
+        )
     ),
 
     agent = dict(
@@ -76,7 +90,9 @@ CONFIG = dict(
 def prepare_roles(config):
     file = tempfile.NamedTemporaryFile()
     rpc_args = {
-        'init_method': f'file://{file.name}'
+        'init_method': f'file://{file.name}',
+        # 'rpc_timeout': 30,
+
     }
     procs = []
 
@@ -163,14 +179,15 @@ def prepare_roles(config):
         ))
 
     # tb
-    procs.append(dict(
-        target = Tensorboard,
-        rpc = dict(
-            rank = get_rank(),
-            name = 'tb-0',
-            **rpc_args
-        ),
-    ))
+    for i in range(config['tb']['num_process']):
+        procs.append(dict(
+            target = Tensorboard,
+            rpc = dict(
+                rank = get_rank(),
+                name = f'tb-{i}',
+                **rpc_args
+            ),
+        ))
 
     world_size = get_rank()
     for arg in procs:

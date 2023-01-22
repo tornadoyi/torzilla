@@ -30,10 +30,10 @@ class Evaluator(Role):
                 reduced_report[k] += v / len(reports)
 
         # send to tb
-        ops = []
+        idcts = []
         for k, v in reduced_report.items():
-            ops += Tensorboard.make_numeric_ops(f'eval/{k}', v, version)
-        self.remote('tb').rpc_async().add_ops(ops)
+            idcts += Tensorboard.guess(f'eval/{k}', v, version)
+        self.remote('tb').rpc_async().adds(idcts)
 
     def pull_model(self):
         ns = self.manager().eval
