@@ -113,6 +113,9 @@ class Learner(Role):
         idcts = []
         for k, v in learn_info.items():
             idcts += Tensorboard.guess(f'learner/{k}', v, version)
+
+        # optimizer
+        idcts += Tensorboard.guess(f'learner/lr', self.scheduler.get_last_lr(), version)
         
         # grad
         params = self.optimizer.optimizer.param_groups[0]['params']

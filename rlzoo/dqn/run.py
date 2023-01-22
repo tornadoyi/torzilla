@@ -14,6 +14,7 @@ CONFIG = dict(
     runner = dict(
         num_learn = A(type=int, default=_TOTAL_LEARN),
         freq_push_model = A(type=int, default=1),
+        freq_learn_print = A(type=int, default=3),
         freq_eval = A(type=int, default=10),
         freq_sample = A(type=int, default=1),
         num_sampled_data = A(type=int, default=_BATCH_SIZE // 3),

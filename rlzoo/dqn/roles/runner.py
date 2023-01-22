@@ -12,6 +12,7 @@ class Runner(Role):
         cfg_run = config['runner']
         num_learn = cfg_run['num_learn']
         freq_push_model = cfg_run['freq_push_model']
+        freq_learn_print = cfg_run['freq_learn_print']
         freq_eval = cfg_run['freq_eval']
         freq_sample = cfg_run['freq_sample']
         num_sampled_data = cfg_run['num_sampled_data']
@@ -39,16 +40,17 @@ class Runner(Role):
 
             # learn
             push_model = version % freq_push_model == 0
-            self._learn(version, push_model).wait()
+            print_tb = version % freq_learn_print == 0
+            self._learn(version, push_model, print_tb).wait()
 
-    def _learn(self, version, push_model):
+    def _learn(self, version, push_model, print_tb):
         def _finish(start_time, version, *args):
             cost = time.time() - start_time
             self.remote('tb').rpc_async().add_scalar('runner/learn_cost', cost, global_step=version)
 
         # learn
         master = 'learner-0'
-        fut = self.remotes('learner').rpc_async().learn(master, True, push_model)
+        fut = self.remotes('learner').rpc_async().learn(master, print_tb, push_model)
         fut.add_done_callback(partial(_finish, time.time(), version))
         return fut
 
