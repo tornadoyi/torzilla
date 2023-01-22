@@ -42,7 +42,7 @@ CONFIG = dict(
             optim = dict(
                 name = A(type=str, default='RMSprop'),
                 args = dict(
-                    lr = A(type=float, default=1e-3),
+                    lr = A(type=float, default=1e-2),
                 )
             ),
             scheduler = dict(
@@ -50,7 +50,7 @@ CONFIG = dict(
                 args = dict(
                     start_factor = A(type=float, default=1.0),
                     end_factor = A(type=float, default=0.1),
-                    total_iters = A(type=int, default=_TOTAL_LEARN // 3),
+                    total_iters = A(type=int, default=_TOTAL_LEARN),
                 )
             ),
             max_grad_norm = A(type=float, default=None),
