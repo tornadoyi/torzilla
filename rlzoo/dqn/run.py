@@ -49,7 +49,7 @@ CONFIG = dict(
                 name = A(type=str, default='LinearLR'),
                 args = dict(
                     start_factor = A(type=float, default=1.0),
-                    end_factor = A(type=float, default=0.1),
+                    end_factor = A(type=float, default=0.6),
                     total_iters = A(type=int, default=_TOTAL_LEARN),
                 )
             ),
