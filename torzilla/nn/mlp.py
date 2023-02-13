@@ -46,7 +46,7 @@ class Layer(_nn.Module):
         self.ops = []
         
         # linear & initializer
-        self.linear = _nn.Linear(in_features, out_features, bias, device, dtype)
+        self.linear = _nn.Linear(in_features, out_features, bias, device=device, dtype=dtype)
         weight_initializer(self.linear.weight.data)
         if bias:
             bias_initializer(self.linear.bias.data)

@@ -5,5 +5,5 @@ PROJECT_PATH=$(dirname "$CUR_DIR")
 ARGS=$@
 
 cd $PROJECT_PATH
-python -m unittest discover  -v  -p "test_*.py"
+python3 -m unittest discover  -v  -p "test_*.py"
 

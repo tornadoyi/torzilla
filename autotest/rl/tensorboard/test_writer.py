@@ -21,7 +21,7 @@ class Tensorboard(mp.Target):
 
 class TestTarget(mp.Target):
     def _start(self):
-        self.tb = rpc.rpc_sync(0, mp.current_target_rref)
+        self.tb = rpc.rpc_sync('0', mp.current_target_rref)
     
     def _run(self):
         SHAPE = (10, 10)
