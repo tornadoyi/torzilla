@@ -1,5 +1,6 @@
 import tempfile
 import itertools
+from torch import distributed as dist 
 import torzilla as tz
 from torzilla import multiprocessing as mp
 from rlzoo.dqn.roles import *
@@ -36,7 +37,7 @@ CONFIG = dict(
     learner = dict(
         num_process = A(type=int, default=2),
         distributed = dict(
-            backend = A(type=str, default='gloo')
+            backend = A(type=str, default='nccl' if dist.is_nccl_available() else 'gloo')
         ),
         optimizer = dict(
             optim = dict(
