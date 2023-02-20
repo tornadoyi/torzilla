@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from gym.spaces import Discrete, MultiDiscrete, Box
+from gymnasium.spaces import Discrete, MultiDiscrete, Box
 from torzilla import nn
 from torzilla.nn import functional as F
 

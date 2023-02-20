@@ -1,4 +1,4 @@
-import gym
+import gymnasium as gym
 from .wrappers import TensorWrapper, AtariPreprocessing, envs as env_wrappers
 
 
