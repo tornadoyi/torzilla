@@ -26,6 +26,9 @@ class Runner(Role):
         num_sample_per_worker = math.ceil(replay_cap / len(self.remotes('worker')))
         self.remotes('worker').rpc_sync().run_env(num_sample_per_worker)
 
+        print('!!!!!!')
+        # time.sleep(3600)
+
         # main loop
         for version in range(1, num_learn, 1):
             print(f'current version: {version}')

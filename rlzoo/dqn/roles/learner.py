@@ -20,6 +20,8 @@ class Learner(Role):
         # agent
         env = gym.make(**config['env'])
         self.agent = Agent(env.observation_space, env.action_space, **config['agent'])
+        if torch.cuda.is_available():
+            self.agent = self.agent.cuda(dist.get_rank() % torch.cuda.device_count())
 
         # optimizer
         cfg = config['learner']['optimizer']
@@ -43,7 +45,7 @@ class Learner(Role):
     def push_model(self):
         with self.lock:
             self.remote('ps').rpc_sync().put(
-                value = self.agent.state_dict(),
+                value = dict([(k, v.cpu()) for k, v in self.agent.state_dict().items()]),
                 meta = self.meta
             )
 
@@ -62,10 +64,16 @@ class Learner(Role):
 
         # sample
         datas = self.remote('replay').rpc_sync().sample(batch_size)
+        
         inputs = {}
         for k, v in datas[0].items():
             if not isinstance(v, torch.Tensor): continue
             inputs[k] = torch.vstack([d[k] for d in datas]).squeeze()
+
+        if torch.cuda.is_available():
+            index = dist.get_rank() % torch.cuda.device_count()
+            inputs = dict([(k, v.cuda(index)) for k, v in inputs.items()])
+
 
         # grad norm
         def _grad_norm():
@@ -88,7 +96,7 @@ class Learner(Role):
 
             # meta
             self.meta.update(dict(
-                version = self.agent.num_learn.numpy().tolist(),
+                version = self.agent.num_learn.cpu().numpy().tolist(),
                 timestamp = time.time()
             ))
 
@@ -101,6 +109,10 @@ class Learner(Role):
 
 
     def _print_tb(self, learn_info, inputs):
+        # to cpu
+        learn_info = dict([(k, v.cpu()) for k, v in learn_info.items()])
+        inputs = dict([(k, v.cpu()) for k, v in inputs.items()])
+
         fut_name = '__fut_print_tb__'
         f_print = getattr(self, fut_name, None)
         if f_print is not None:
@@ -120,7 +132,7 @@ class Learner(Role):
         # grad
         params = self.optimizer.optimizer.param_groups[0]['params']
         device = params[0].grad.device
-        norm_grads = torch.stack([torch.norm(p.grad.detach(), 2.0).to(device) for p in params])
+        norm_grads = torch.stack([torch.norm(p.grad.detach(), 2.0).to(device) for p in params]).cpu()
         total_norm_grad = torch.norm(norm_grads, 2.0)
         idcts.append(('add_histogram', ('learner/grad_norm_dist', norm_grads, version)))
         idcts.append(('add_scalar', ('learner/grad_norm', total_norm_grad, version)))
