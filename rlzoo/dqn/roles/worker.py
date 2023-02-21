@@ -25,9 +25,11 @@ class Worker(Role):
             self.pull_model()
 
         # apply
-        batches = gear.apply('run_env', args=(num_steps, ))
-        
+        gear.apply('run_env', args=(num_steps, ))
+
         # merge
+        Q = self.manager().worker.queue
+        batches = [Q.get() for _ in range(Q.qsize())]
         datas = {}
         for k in batches[0].keys():
             datas[k] = torch.concat([batch[k] for batch in batches], axis=0)
@@ -57,8 +59,8 @@ class Subworker(mp.Target):
         )
 
     def run_env(self, num_steps):
-        L = self.manager().worker.lock
         ns = self.manager().worker
+        L, Q = ns.lock, ns.queue
         agent, version = ns.agent, ns.meta['version']
         
         datas = defaultdict(list)
@@ -89,4 +91,4 @@ class Subworker(mp.Target):
         
         
         batch = dict([(k, torch.stack(v)) for k, v in datas.items()])
-        return batch
+        Q.put(batch)
