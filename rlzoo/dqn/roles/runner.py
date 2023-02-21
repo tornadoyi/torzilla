@@ -2,11 +2,16 @@ import math
 import time
 from functools import partial
 from torch import futures
+from torzilla.utils.spy import Spy
 from rlzoo.zoo.role import Role
 
 
 class Runner(Role):
     def _run(self):
+        # spy
+        spy = Spy(self.manager()._processes)
+        spy.start()
+
         # config
         config = self.kwargs()['config']
         cfg_run = config['runner']
@@ -42,6 +47,12 @@ class Runner(Role):
             push_model = version % freq_push_model == 0
             print_tb = version % freq_learn_print == 0
             self._learn(version, push_model, print_tb).wait()
+
+            # spy
+            self._spy_on(spy, version)
+
+        # end
+        spy.stop()
 
     def _learn(self, version, push_model, print_tb):
         def _finish(start_time, version, *args):
@@ -84,4 +95,15 @@ class Runner(Role):
         fut.add_done_callback(partial(_finish, time.time(), version))
         setattr(self, param_name, fut)
         return fut
-        
+    
+    def _spy_on(self, spy, version):
+        param_name = '__last_spy_time__'
+        last_time = getattr(self, param_name, 0)
+        if time.time() - last_time < 1:
+            return
+        idcts = []
+        for name, value in spy.scalars(['cpu_percent', 'num_threads', 'cpu_num', 'num_fds']).items():
+            idcts.append(('add_scalars', (f'system/{name}', value, version)))
+
+        self.remote('tb').rpc_async().adds(idcts)
+        setattr(self, param_name, time.time())

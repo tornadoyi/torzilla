@@ -54,7 +54,7 @@ class Consumer(mp.Target):
 class TestSHM(unittest.TestCase):
     
     def test_mp_shm(self):
-        proc = mp.lanuch(
+        proc = mp.launch(
             manager = Manager,
             args = [
                 {'target': Producer},

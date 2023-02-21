@@ -7,6 +7,7 @@ from rlzoo.zoo import gym
 from rlzoo.zoo.role import Role
 from ..agent import Agent
 
+
 class Worker(Role):
     def _start(self):
         config = self.kwargs()['config']

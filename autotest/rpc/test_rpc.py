@@ -65,7 +65,7 @@ class TestRPC(unittest.TestCase):
     def test_rpc_enable_main(self):
         file = tempfile.NamedTemporaryFile()
         init_method = f'file://{file.name}'
-        result = mp.lanuch(
+        result = mp.launch(
             num_process=self.num_process,
             main=Target,
             target=Target,
@@ -92,7 +92,7 @@ class TestRPC(unittest.TestCase):
             p.start()
             extra_procs.append(p)
 
-        result = mp.lanuch(
+        result = mp.launch(
             num_process=self.num_process-2,
             main=Target,
             target=Target,
@@ -113,7 +113,7 @@ class TestRPC(unittest.TestCase):
     def test_rpc_diy(self):
         file = tempfile.NamedTemporaryFile()
         init_method = f'file://{file.name}'
-        result = mp.lanuch(
+        result = mp.launch(
             main=Target,
             target=Target,
             manager=Manager,

@@ -41,7 +41,7 @@ class TestGear(unittest.TestCase):
             args.append(dict(target=TargetA, slot=i))
         for i in range(nb):
             args.append(dict(target=TargetB, slot=i))
-        self.result = mp.lanuch_async(
+        self.result = mp.launch_async(
             manager=Manager,
             args = args,
             num_a = na,

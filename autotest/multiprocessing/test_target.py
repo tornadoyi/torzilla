@@ -40,17 +40,17 @@ def _target_empty(target):
 
 class TestTarget(unittest.TestCase):
     def test_mp_simple(self):
-        mp.lanuch(
+        mp.launch(
             num_process = 1,
             target = mp.Target,
         )
-        mp.lanuch(
+        mp.launch(
             num_process = 1,
             target = _target_empty,
         )
 
     def test_mp_target_class(self):
-        ans = mp.lanuch(
+        ans = mp.launch(
             num_process=3,
             main = MainTarget,
             target = SubTargetA,
@@ -60,7 +60,7 @@ class TestTarget(unittest.TestCase):
 
     def test_mp_target_function(self):
         number = 100
-        ans = mp.lanuch(
+        ans = mp.launch(
             num_process=5,
             main = MainTarget,
             manager = Manager,
@@ -70,7 +70,7 @@ class TestTarget(unittest.TestCase):
         self._common_check(ans.result, number)
 
     def test_mp_mix_target(self):
-        ans = mp.lanuch(
+        ans = mp.launch(
             main = MainTarget,
             manager = Manager,
             args = [

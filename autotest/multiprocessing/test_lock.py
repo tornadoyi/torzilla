@@ -93,7 +93,7 @@ class TestRWLock(unittest.TestCase):
                 self.assertEqual(v, gt_read_values[k], f'value count should be {gt_read_values[k]}')
 
         for lock_type in ['manager', 'mp']:
-            results = mp.lanuch(
+            results = mp.launch(
                 args=subargs, manager=Manager, 
                 w_first = True, lock_type = lock_type
             ).manager().results
@@ -121,7 +121,7 @@ class TestRWLock(unittest.TestCase):
                 
 
         for lock_type in ['manager', 'mp']:
-            results = mp.lanuch(
+            results = mp.launch(
                 args=subargs, manager=Manager, 
                 w_first = False, lock_type = lock_type
             ).manager().results

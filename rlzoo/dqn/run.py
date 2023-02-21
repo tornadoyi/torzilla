@@ -7,7 +7,7 @@ from rlzoo.dqn.roles import *
 
 A = tz.Argument
 
-_BATCH_SIZE = 128
+_BATCH_SIZE = 256
 _TOTAL_LEARN = int(1e4)
 
 CONFIG = dict(
@@ -18,7 +18,7 @@ CONFIG = dict(
         freq_learn_print = A(type=int, default=3),
         freq_eval = A(type=int, default=10),
         freq_sample = A(type=int, default=1),
-        num_sampled_data = A(type=int, default=_BATCH_SIZE // 3),
+        num_sampled_data = A(type=int, default=_BATCH_SIZE*2),
     ),
 
     env = dict(
@@ -27,7 +27,7 @@ CONFIG = dict(
     ),
 
     worker = dict(
-        num_process = A(type=int, default=5),
+        num_process = A(type=int, default=30),
     ),
 
     eval = dict(
@@ -61,7 +61,7 @@ CONFIG = dict(
     
     replay = dict(
         num_process = A(type=int, default=1),
-        capacity = A(type=int, default=_BATCH_SIZE * 10),
+        capacity = A(type=int, default=_BATCH_SIZE * 5),
     ),
 
     ps = dict(
@@ -81,7 +81,7 @@ CONFIG = dict(
         gamma = A(type=float, default=0.99),
         eps = A(type=float, default=0.3),
         eps_annealing = A(type=float, default=5.0),
-        qtarget_update_freq = A(type=int, default=100),
+        qtarget_update_freq = A(type=int, default=150),
         q_func_args = dict(
             hiddens = A(type=int, nargs='+', default=[256]),
             dueling = A(action='store_true', default=False),
@@ -203,7 +203,7 @@ def prepare_roles(config):
 def main():
     config = tz.parse_hargs(CONFIG)
     args = prepare_roles(config)
-    mp.lanuch(
+    mp.launch(
         args = args,
         manager = Manager,
         config = config

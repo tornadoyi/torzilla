@@ -41,7 +41,7 @@ class TestWriter(unittest.TestCase):
     def test_tb_writer(self):
         file = tempfile.NamedTemporaryFile()
         args = [{'target': Tensorboard}] + [{'target': TestTarget}] * random.randint(3, 5)
-        mp.lanuch(
+        mp.launch(
             args = args,
             rpc = {
                 'init_method': f'file://{file.name}',

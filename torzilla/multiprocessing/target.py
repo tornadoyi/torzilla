@@ -36,19 +36,18 @@ class State(Enum):
 class Target(object):
     def __init__(
         self, 
-        index__,
-        manager__,
-        num_process__,
-        barrier__,
-        *,
-        target__=None,
-        **kwargs
+        index,
+        manager,
+        num_process,
+        barrier,
+        target=None,
+        kwargs={}
     ):
-        self._index = index__
-        self._manager = manager__
-        self._target = target__
-        self._num_process = num_process__
-        self._barrier = barrier__
+        self._index = index
+        self._manager = manager
+        self._target = target
+        self._num_process = num_process
+        self._barrier = barrier
         self._kwargs = kwargs
         self._rref = None
         self._state = State.Init

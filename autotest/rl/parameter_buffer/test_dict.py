@@ -171,7 +171,7 @@ class TestDictParameterBuffer(unittest.TestCase):
     def setUp(self):
         file = tempfile.NamedTemporaryFile()
         args = [{'target': TestTarget}] + [{'target': ParameterBuffer}] * 1 #random.randint(1, 10)
-        self.result = mp.lanuch_async(
+        self.result = mp.launch_async(
             manager=Manager,
             args = args,
             rpc = {
