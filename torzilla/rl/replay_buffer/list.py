@@ -35,6 +35,10 @@ class ListReplayBuffer(BaseReplayBuffer):
         with self._qlock.wlock():
             self._store.extend(values)
 
+    def extend_batch(self, batch):
+        with self._qlock.wlock():
+            self._store.extend_batch(batch)
+
     def pop(self):
         with self._qlock.wlock(), self._mlock.wlock():
             self._store.flush()
@@ -87,6 +91,16 @@ class _Store(object):
     def extend(self, values):
         self._Q.extend(values)
 
+    def extend_batch(self, batch):
+        d_len = len(list(batch.values())[0])
+        values = []
+        for i in range(d_len):
+            d = {}
+            for k, v in batch.items():
+                d[k] = v[i]
+            values.append(d)
+        self._Q.extend(values)
+
     def flush(self):
         self._M.extend(self._Q)
         self._Q.clear()
@@ -104,7 +118,7 @@ class _Store(object):
 
 class _StoreProxy (MakeProxyType('__StoreProxy', (
     '__getitem__', '__len__', 
-    'append', 'capacity', 'clear', 'extend', 'flush', 'pop', 'popn', 'qsize', 'sample',
+    'append', 'capacity', 'clear', 'extend', 'extend_batch', 'flush', 'pop', 'popn', 'qsize', 'sample',
 ))):
     pass
 

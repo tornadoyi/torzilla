@@ -19,9 +19,11 @@ class ReplayBuffer(Role):
     def extend(self, *args, **kwargs):
         return self._buffer.extend(*args, **kwargs)
 
+    def extend_batch(self, *args, **kwargs):
+        return self._buffer.extend_batch(*args, **kwargs)
+
     def sample(self, *args, **kwargs):
         return self._buffer.sample(*args, **kwargs)
 
     def clear(self, *args, **kwargs):
         return self._buffer.clear(*args, **kwargs)
-

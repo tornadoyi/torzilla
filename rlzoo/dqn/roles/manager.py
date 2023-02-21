@@ -13,7 +13,6 @@ class Manager(mp.Manager):
         cfg = config['worker']
         ns = self.worker = self.Namespace()
         ns.gear = self.Gear(cfg['num_process'])
-        ns.queue = self.Queue()
 
         # evaluator
         cfg = config['eval']

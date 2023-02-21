@@ -1,8 +1,8 @@
 import time
 import math
+from collections import defaultdict
 import torch
 from torzilla import multiprocessing as mp
-from torzilla import threading
 from rlzoo.zoo import gym
 from rlzoo.zoo.role import Role
 from ..agent import Agent
@@ -17,33 +17,22 @@ class Worker(Role):
         ns.lock = self.manager().RWLock()
 
     def run_env(self, total_steps, pull_model=False):
-        Q = self.manager().worker.queue
         gear = self.manager().worker.gear
         num_steps = math.ceil(total_steps // gear.connections())
-
-        # upload thread
-        def _batch_upload():
-            remain_data = num_steps * gear.connections()
-            while remain_data > 0:
-                qsize = Q.qsize()
-                if qsize == 0:
-                    time.sleep(0.5)
-                    continue
-                datas = [Q.get() for _ in range(qsize)]
-                self.remote('replay').rpc_sync().extend(datas)
-                remain_data -= len(datas)
 
         # push model
         if pull_model:
             self.pull_model()
 
-        # start thread
-        t = threading.Thread(target=_batch_upload)
-        t.start()
-        
         # apply
-        gear.apply('run_env', args=(num_steps, ))
-        t.join()
+        batches = gear.apply('run_env', args=(num_steps, ))
+        
+        # merge
+        datas = {}
+        for k in batches[0].keys():
+            datas[k] = torch.concat([batch[k] for batch in batches], axis=0)
+        
+        self.remote('replay').rpc_sync().extend_batch(datas)
 
     def pull_model(self):
         ns = self.manager().worker
@@ -68,11 +57,11 @@ class Subworker(mp.Target):
         )
 
     def run_env(self, num_steps):
-        Q = self.manager().worker.queue
         L = self.manager().worker.lock
         ns = self.manager().worker
         agent, version = ns.agent, ns.meta['version']
-            
+        
+        datas = defaultdict(list)
         for _ in range(num_steps):
             # reset
             if self.observation is None:
@@ -87,14 +76,17 @@ class Subworker(mp.Target):
             observation, reward, terminated, truncated, info = self.env.step(action)
             
             # save
-            Q.put({
-                'observation': self.observation,
-                'next_observation': observation,
-                'reward': reward,
-                'action': action,
-                'done': terminated or truncated,
-                'info': info,
-                'eps': eps,
-                'version': torch.tensor(version),
-            })
+            datas['observation'].append(self.observation)
+            datas['next_observation'].append(observation)
+            datas['reward'].append(reward)
+            datas['action'].append(action)
+            datas['done'].append(terminated or truncated)
+            datas['eps'].append(eps)
+            datas['version'].append(torch.tensor(version))
+            # datas['info'].append(info)    # low performance
+            
             self.observation = None if terminated or truncated else observation
+        
+        
+        batch = dict([(k, torch.stack(v)) for k, v in datas.items()])
+        return batch
