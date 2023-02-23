@@ -2,8 +2,7 @@ from torzilla import multiprocessing as mp
 from torzilla.rl.replay_buffer import ListReplayBuffer
 from torzilla.rl.parameter_buffer import DictParameterBuffer
 from torzilla.rl.tensorboard import SummaryWriter
-from rlzoo.zoo import gym
-from ..agent import Agent
+
 
 class Manager(mp.Manager):
     def _start(self):
@@ -41,6 +40,7 @@ class Manager(mp.Manager):
 
     def _exit(self):
         self.worker.gear.close()
+        self.eval.gear.close()
         self.learner.gear.close()
 
         

@@ -1,10 +1,9 @@
 import sys
 import traceback
 import numbers
-from multiprocessing.pool import ThreadPool
 import threading as _th
 from .result import Result, MultiResult
-
+from .pool import ElasticPool
 
 class Gear(object):
     def __init__(self, connections):
@@ -42,8 +41,8 @@ class Gear(object):
             self._running = False
             self._cond.notify_all()
 
-    def connect(self, listener, slot=None, processes=None):
-        return self._listen(self, listener, slot, processes)
+    def connect(self, listener, slot=None):
+        return self._listen(self, listener, slot)
 
     def connections(self):
         return self._connections
@@ -102,7 +101,7 @@ class Gear(object):
             return True, (self._id, index, self._args, self._kwargs, self._result)
 
     @staticmethod
-    def _listen(gear, listener, slot, processes):
+    def _listen(gear, listener, slot):
 
         def _call(index, args, kwargs, result):
             try:
@@ -134,7 +133,7 @@ class Gear(object):
                     error_callback = _error_callback
                 )
         
-        pool = ThreadPool(processes)
+        pool = ElasticPool()
         thread = _th.Thread(target=_loop, args=(pool, ))
         thread.start()
         return Connection(gear, thread, pool)

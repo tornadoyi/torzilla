@@ -43,7 +43,7 @@ CONFIG = dict(
             optim = dict(
                 name = A(type=str, default='RMSprop'),
                 args = dict(
-                    lr = A(type=float, default=1e-2),
+                    lr = A(type=float, default=2e-2),
                 )
             ),
             scheduler = dict(
@@ -81,7 +81,7 @@ CONFIG = dict(
         gamma = A(type=float, default=0.99),
         eps = A(type=float, default=0.3),
         eps_annealing = A(type=float, default=5.0),
-        qtarget_update_freq = A(type=int, default=150),
+        qtarget_update_freq = A(type=int, default=100),
         q_func_args = dict(
             hiddens = A(type=int, nargs='+', default=[256]),
             dueling = A(action='store_true', default=False),

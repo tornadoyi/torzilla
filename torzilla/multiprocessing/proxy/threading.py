@@ -56,7 +56,7 @@ class GearProxy (MakeProxyType('GearProxy', (
     def apply(self, method, args=(), kwds={}, to=None):
         return self.apply_async(method, args, kwds, to).get()
 
-    def connect(self, listener, slot=None, processes=None):
-        return threading.Gear._listen(self, listener, slot, processes)
+    def connect(self, listener, slot=None):
+        return threading.Gear._listen(self, listener, slot)
 
 
